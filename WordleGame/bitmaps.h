@@ -1,0 +1,1 @@
+#define IDB_WORDLE_ICON 101

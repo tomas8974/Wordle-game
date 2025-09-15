@@ -1,0 +1,17 @@
+# depslib dependency file v1.0
+1757929739 source:c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\main.cpp
+	<tchar.h>
+	<windows.h>
+	"menu.h"
+	"bitmaps.h"
+
+1757855202 source:c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\menu.rc
+	"menu.h"
+
+1757836889 c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\menu.h
+
+1757838786 source:c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\bitmaps.rc
+	"bitmaps.h"
+
+1757839457 c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\bitmaps.h
+
