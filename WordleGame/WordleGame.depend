@@ -15,3 +15,19 @@
 
 1757839457 c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\bitmaps.h
 
+1757838786 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.rc
+	"bitmaps.h"
+
+1757839457 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.h
+
+1758106370 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\main.cpp
+	<tchar.h>
+	<windows.h>
+	"menu.h"
+	"bitmaps.h"
+
+1757836889 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\menu.h
+
+1757855202 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\menu.rc
+	"menu.h"
+

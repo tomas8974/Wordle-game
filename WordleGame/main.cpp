@@ -13,7 +13,7 @@
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
 void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp);
-void DrawAnyText(
+void DrawCenteredText(
   HDC hdc,
   const RECT* rcClient,
   LPCTSTR text,
@@ -22,8 +22,8 @@ void DrawAnyText(
   LPCTSTR fontName,
   COLORREF textColor,
   COLORREF bkColor,
-  int xOffset,
-  int yOffset,
+  float xProp,
+  float yProp,
   UINT format
 );
 /*  Make the class name into a global variable  */
@@ -138,27 +138,27 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
             // draws wordle icon
             if (hWordleBitmap) {
-                paintBitmapInTheCenter(hdc, &rcClient , hWordleBitmap, 0.5f, 0.2f);
+                paintBitmapInTheCenter(hdc, &rcClient , hWordleBitmap, 0.5f, 0.19f);
             }
 
             // draws Wordle title
-            DrawAnyText(
+            DrawCenteredText(
                 hdc, &rcClient,
                 _T("Wordle"),
                 72, true, _T("Cascadia Code"),
                 RGB(0,0,0), RGB(224,224,224),
-                0, -150,
+                0, -0.2f,
                 DT_CENTER | DT_VCENTER | DT_SINGLELINE
             );
 
             // draws short game description
-            DrawAnyText(
+            DrawCenteredText(
                 hdc, &rcClient,
                 _T("Guess a 5-letter word\r\nin 6 guesses"),
                 32, true, _T("Cascadia Code"),
                 RGB(0,0,0), RGB(224,224,224),
-                0, 0,
-                DT_CENTER | DT_VCENTER
+                0, 0.5f,
+                DT_CENTER
             );
 
             EndPaint(hwnd, &ps);
@@ -173,6 +173,16 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     MoveWindow(hBtn, x, y, btnWidth, btnHeight, TRUE);
                 }
                 InvalidateRect(hwnd, NULL, TRUE);
+            }
+            break;
+        case WM_GETMINMAXINFO:
+            {
+                MINMAXINFO* pMinMax = (MINMAXINFO*)lParam;
+                int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+                int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+                pMinMax->ptMinTrackSize.x = screenWidth * 0.5;
+                pMinMax->ptMinTrackSize.y = screenHeight * 0.75;
             }
             break;
         case WM_COMMAND:
@@ -215,9 +225,6 @@ void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, floa
     BITMAP bm;
     GetObject(hBitmap, sizeof(bm), &bm);
 
-    /*int bmpX = (rcClient->right - bm.bmWidth) / 2 + xOffset;
-    int bmpY = (rcClient->bottom - bm.bmHeight) / 2 + yOffset;*/
-
     int clientWidth = rcClient->right - rcClient->left;
     int clientHeight = rcClient->bottom - rcClient->top;
 
@@ -232,7 +239,7 @@ void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, floa
 
 // xOffset - horizontal offset
 // yOffset - vertical offset
-void DrawAnyText(
+void DrawCenteredText(
       HDC hdc,
       const RECT* rcClient,
       LPCTSTR text,
@@ -241,12 +248,11 @@ void DrawAnyText(
       LPCTSTR fontName,
       COLORREF textColor,
       COLORREF bkColor,
-      int xOffset,
-      int yOffset,
+      float xProp,
+      float yProp,
       UINT format
     )
 {
-
     RECT rcText;
     HFONT hFont = CreateCustomFont(fontSize, bold, fontName);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
@@ -254,30 +260,19 @@ void DrawAnyText(
     SetBkColor(hdc, bkColor);
     SetTextColor(hdc, textColor);
 
+    rcText = {0, 0, rcClient->right - rcClient->left, rcClient->bottom - rcClient->top};
+    DrawText(hdc, text, -1, &rcText, format | DT_CALCRECT);
 
-    // center multiline text
-    if (!(format & DT_SINGLELINE) && (format & DT_VCENTER)) {
-        rcText = {0, 0, rcClient->right - rcClient->left, rcClient->bottom - rcClient->top};
-        DrawText(hdc, text, -1, &rcText, format | DT_CALCRECT);
+    int textWidth = rcText.right - rcText.left;
+    int textHeight = rcText.bottom - rcText.top;
 
-        int rectWidth = rcText.right - rcText.left;
-        int rectHeight = rcText.bottom - rcText.top;
+    int centerX = (rcClient->left + rcClient->right) / 2 + (int)(textWidth * xProp);
+    int centerY = (rcClient->top + rcClient->bottom) / 2 + (int)(textHeight * yProp);
 
-        int centerX = (rcClient->left + rcClient->right) / 2 + xOffset;
-        int centerY = (rcClient->top + rcClient->bottom) / 2 + yOffset;
-
-        rcText.left   = centerX - rectWidth / 2;
-        rcText.right  = centerX + rectWidth / 2;
-        rcText.top    = centerY - rectHeight / 2;
-        rcText.bottom = centerY + rectHeight / 2;
-    }
-    else {
-        rcText = *rcClient;
-        rcText.left  += xOffset;
-        rcText.right += xOffset;
-        rcText.top   += yOffset;
-        rcText.bottom += yOffset;
-    }
+    rcText.left   = centerX - textWidth / 2;
+    rcText.right  = centerX + textWidth / 2;
+    rcText.top    = centerY - textHeight / 2;
+    rcText.bottom = centerY + textHeight / 2;
 
     DrawText(hdc, text, -1, &rcText, format);
 
