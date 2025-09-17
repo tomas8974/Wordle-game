@@ -1,6 +1,4 @@
 #define IDR_MYMENU 1001
 #define ID_FILE_EXIT 9001
-#define ID_STUFF_GO 9002
-
-#define PLAY_BUTTON 9003
+#define ID_READ_RULES 9002
 

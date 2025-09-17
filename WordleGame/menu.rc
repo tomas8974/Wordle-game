@@ -9,7 +9,6 @@ BEGIN
 
     POPUP "&Rules"
     BEGIN
-        MENUITEM "&Read Rules", ID_STUFF_GO
-        MENUITEM "G&o somewhere else", 0, GRAYED
+        MENUITEM "R&ead Rules", ID_READ_RULES
     END
 END

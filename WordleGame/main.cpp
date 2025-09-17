@@ -8,6 +8,7 @@
 #include <windows.h>
 #include "menu.h"
 #include "bitmaps.h"
+#include "buttons.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -22,9 +23,9 @@ void DrawCenteredText(
   LPCTSTR fontName,
   COLORREF textColor,
   COLORREF bkColor,
+  UINT format,
   float xProp,
-  float yProp,
-  UINT format
+  float yProp
 );
 /*  Make the class name into a global variable  */
 TCHAR szClassName[ ] = _T("CodeBlocksWindowsApp");
@@ -127,7 +128,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 (HMENU) PLAY_BUTTON,
                 (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
                 NULL
-            ); // pointer, not needed
+            );
 
             break;
 
@@ -147,8 +148,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 _T("Wordle"),
                 72, true, _T("Cascadia Code"),
                 RGB(0,0,0), RGB(224,224,224),
-                0, -0.2f,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+                0, -0.2f
             );
 
             // draws short game description
@@ -157,8 +158,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 _T("Guess a 5-letter word\r\nin 6 guesses"),
                 32, true, _T("Cascadia Code"),
                 RGB(0,0,0), RGB(224,224,224),
-                0, 0.5f,
-                DT_CENTER
+                DT_CENTER,
+                0, 0.5f
             );
 
             EndPaint(hwnd, &ps);
@@ -218,7 +219,7 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp){
+void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
     HDC hdcMem = CreateCompatibleDC(hdc);
     HBITMAP hOld = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
@@ -237,8 +238,8 @@ void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, floa
     DeleteDC(hdcMem);
 }
 
-// xOffset - horizontal offset
-// yOffset - vertical offset
+// xProp - horizontal proportion
+// yProp - vertical proportion
 void DrawCenteredText(
       HDC hdc,
       const RECT* rcClient,
@@ -248,9 +249,9 @@ void DrawCenteredText(
       LPCTSTR fontName,
       COLORREF textColor,
       COLORREF bkColor,
-      float xProp,
-      float yProp,
-      UINT format
+      UINT format,
+      float xProp = 0.0f,
+      float yProp = 0.0f
     )
 {
     RECT rcText;
