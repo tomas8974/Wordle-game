@@ -9,12 +9,14 @@
 #include "menu.h"
 #include "bitmaps.h"
 #include "buttons.h"
+#include "dialog.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
-void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp);
-void DrawCenteredText(
+BOOL CALLBACK DialogProcedure(HWND, UINT, WPARAM, LPARAM);
+VOID paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp);
+VOID DrawCenteredText(
   HDC hdc,
   const RECT* rcClient,
   LPCTSTR text,
@@ -119,13 +121,26 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             MessageBox(hwnd, _T("Failed to load wordle bitmap!"), _T("Error"), MB_ICONERROR);
           }
 
+          // play button
           CreateWindow(
                 "BUTTON", // predefined class; Unicode assumed
                 "Play", // button text
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                x, y, btnWidth, btnHeight,
+                x + (btnWidth / 2), y, btnWidth, btnHeight,
                 hwnd, // parent window
                 (HMENU) PLAY_BUTTON,
+                (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
+                NULL
+            );
+
+            // rules button
+            CreateWindow(
+                "BUTTON", // predefined class; Unicode assumed
+                "Rules", // button text
+                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                x - (btnWidth / 2), y, btnWidth, btnHeight,
+                hwnd, // parent window
+                (HMENU) RULES_BUTTON,
                 (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
                 NULL
             );
@@ -167,11 +182,13 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
         }
         case WM_SIZE:
             {
-                HWND hBtn = GetDlgItem(hwnd, PLAY_BUTTON);
-                if (hBtn){
+                HWND hPlayBtn = GetDlgItem(hwnd, PLAY_BUTTON);
+                HWND hRulesBtn = GetDlgItem(hwnd, RULES_BUTTON);
+                if (hPlayBtn || hRulesBtn){
                     x = (rcClient.right - btnWidth) / 2;
                     y = (rcClient.bottom - btnHeight) / 2 + 200;
-                    MoveWindow(hBtn, x, y, btnWidth, btnHeight, TRUE);
+                    MoveWindow(hPlayBtn, x + (btnWidth / 2), y, btnWidth, btnHeight, TRUE);
+                    MoveWindow(hRulesBtn, x - (btnWidth / 2), y, btnWidth, btnHeight, TRUE);
                 }
                 InvalidateRect(hwnd, NULL, TRUE);
             }
@@ -193,6 +210,12 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     break;
                 case PLAY_BUTTON:
                     MessageBox(hwnd, "You started playing Wordle!", "Hooray!", MB_OK);
+                    break;
+                case RULES_BUTTON:
+                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)DialogProcedure);
+                    break;
+                case ID_READ_RULES:
+                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)DialogProcedure);
                     break;
             }
             break;
@@ -219,7 +242,7 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
+VOID paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
     HDC hdcMem = CreateCompatibleDC(hdc);
     HBITMAP hOld = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
@@ -240,7 +263,7 @@ void paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, floa
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-void DrawCenteredText(
+VOID DrawCenteredText(
       HDC hdc,
       const RECT* rcClient,
       LPCTSTR text,
@@ -279,4 +302,82 @@ void DrawCenteredText(
 
     SelectObject(hdc, hOldFont);
     DeleteObject(hFont);
+}
+
+BOOL CALLBACK DialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam){
+    static HBRUSH hDialogBrush = NULL;
+
+    switch(uMsg){
+        case WM_INITDIALOG:
+            {
+                // changes dialog background color
+                if (!hDialogBrush){
+                    hDialogBrush = CreateSolidBrush(RGB(224, 224, 224));
+                }
+
+                // changes dialogs position to the center
+                RECT rc, rcOwner, rcClient;
+                HWND hwndOwner = GetParent(hDlg);
+                if (!hwndOwner){
+                    hwndOwner = GetDesktopWindow();
+                }
+                GetWindowRect(hwndOwner, &rcOwner);
+                GetWindowRect(hDlg, &rc);
+                int dlgWidth = rc.right - rc.left;
+                int dlgHeight = rc.bottom - rc.top;
+
+                int x = rcOwner.left + ((rcOwner.right - rcOwner.left) - dlgWidth) / 2;
+                int y = rcOwner.top + ((rcOwner.bottom - rcOwner.top) - dlgHeight) / 2;
+
+                SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+
+                // changes close button position
+                HWND hCloseBtn = GetDlgItem(hDlg, DIALOG_CLOSE_BUTTON);
+                GetClientRect(hDlg, &rcClient);
+                int btnWidth = 200;
+                int btnHeight = 50;
+                if (hCloseBtn){
+                    int x = (rcClient.right - btnWidth) / 2;
+                    int y = (rcClient.bottom - btnHeight) / 2 + 300;
+                    MoveWindow(hCloseBtn, x, y, btnWidth, btnHeight, TRUE);
+                }
+            }
+            return TRUE;
+        case WM_PAINT:
+            {
+                PAINTSTRUCT ps;
+                HDC hdc = BeginPaint(hDlg, &ps);
+                RECT rc;
+                GetClientRect(hDlg, &rc);
+
+                // draws Rules title
+                DrawCenteredText(
+                    hdc, &rc,
+                    _T("Rules"),
+                    40, true, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+                    0, -0.7f
+                );
+
+                EndPaint(hDlg, &ps);
+                break;
+            }
+            return TRUE;
+        case WM_CTLCOLORDLG:
+            return (INT_PTR)hDialogBrush;
+        case WM_COMMAND:
+            switch(LOWORD(wParam)){
+                case DIALOG_CLOSE_BUTTON:
+                    {
+                        EndDialog(hDlg, 0);
+                    }
+                    return TRUE;
+            }
+            return TRUE;
+        case WM_CLOSE:
+            EndDialog(hDlg, 0);
+            return TRUE;
+    }
+    return FALSE;
 }
