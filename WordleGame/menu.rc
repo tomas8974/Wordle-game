@@ -1,6 +1,6 @@
 #include "menu.h"
 
-IDR_MYMENU MENU
+IDM_MENU MENU
 BEGIN
     POPUP "&File"
     BEGIN

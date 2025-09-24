@@ -1,4 +1,4 @@
-#define IDR_MYMENU 1001
-#define ID_FILE_EXIT 9001
-#define ID_READ_RULES 9002
+#define IDM_MENU 9001
+#define ID_FILE_EXIT 9002
+#define ID_READ_RULES 9003
 

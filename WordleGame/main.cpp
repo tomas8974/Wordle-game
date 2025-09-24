@@ -9,7 +9,7 @@
 #include "menu.h"
 #include "bitmaps.h"
 #include "buttons.h"
-#include "dialog.h"
+#include "RulesDialog.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -78,7 +78,7 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
            screenWidth,                 /* The programs width */
            screenHeight,                 /* and height in pixels */
            HWND_DESKTOP,        /* The window is a child-window to desktop */
-           LoadMenu(NULL, MAKEINTRESOURCE(IDR_MYMENU)),
+           LoadMenu(NULL, MAKEINTRESOURCE(IDM_MENU)),
            hThisInstance,       /* Program Instance handler */
            NULL                 /* No Window Creation data */
            );
@@ -128,7 +128,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
                 x + (btnWidth / 2), y, btnWidth, btnHeight,
                 hwnd, // parent window
-                (HMENU) PLAY_BUTTON,
+                (HMENU) ID_PLAY_BUTTON,
                 (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
                 NULL
             );
@@ -140,7 +140,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
                 x - (btnWidth / 2), y, btnWidth, btnHeight,
                 hwnd, // parent window
-                (HMENU) RULES_BUTTON,
+                (HMENU) ID_RULES_BUTTON,
                 (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
                 NULL
             );
@@ -182,8 +182,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
         }
         case WM_SIZE:
             {
-                HWND hPlayBtn = GetDlgItem(hwnd, PLAY_BUTTON);
-                HWND hRulesBtn = GetDlgItem(hwnd, RULES_BUTTON);
+                HWND hPlayBtn = GetDlgItem(hwnd, ID_PLAY_BUTTON);
+                HWND hRulesBtn = GetDlgItem(hwnd, ID_RULES_BUTTON);
                 if (hPlayBtn || hRulesBtn){
                     x = (rcClient.right - btnWidth) / 2;
                     y = (rcClient.bottom - btnHeight) / 2 + 200;
@@ -208,14 +208,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 case ID_FILE_EXIT:
                     SendMessage(hwnd, WM_CLOSE, 0, 0);
                     break;
-                case PLAY_BUTTON:
+                case ID_PLAY_BUTTON:
                     MessageBox(hwnd, "You started playing Wordle!", "Hooray!", MB_OK);
                     break;
-                case RULES_BUTTON:
-                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
+                case ID_RULES_BUTTON:
+                    DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
                     break;
                 case ID_READ_RULES:
-                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
+                    DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
                     break;
             }
             break;
@@ -344,6 +344,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hDialogBrush = CreateSolidBrush(RGB(224, 224, 224));
                 }
 
+                // loads bitmaps
                 hExample1 = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_EXAMPLE_1));
                 hExample2 = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_EXAMPLE_2));
                 hExample3 = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_EXAMPLE_3));
@@ -365,7 +366,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 
                 // changes close button position
-                HWND hCloseBtn = GetDlgItem(hDlg, DIALOG_CLOSE_BUTTON);
+                HWND hCloseBtn = GetDlgItem(hDlg, ID_DIALOG_CLOSE_BUTTON);
                 GetClientRect(hDlg, &rcClient);
                 int btnWidth = 200;
                 int btnHeight = 50;
@@ -468,7 +469,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
             return (INT_PTR)hDialogBrush;
         case WM_COMMAND:
             switch(LOWORD(wParam)){
-                case DIALOG_CLOSE_BUTTON:
+                case ID_DIALOG_CLOSE_BUTTON:
                     {
                         EndDialog(hDlg, 0);
                         if (hExample1) DeleteObject(hExample1);
