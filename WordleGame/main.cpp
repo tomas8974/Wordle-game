@@ -10,6 +10,8 @@
 #include "bitmaps.h"
 #include "buttons.h"
 #include "RulesDialog.h"
+#include "ui_constants.h"
+#include "colors.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -58,7 +60,7 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
     wincl.cbClsExtra = 0;                      /* No extra bytes after the window class */
     wincl.cbWndExtra = 0;                      /* structure or the window instance */
     /* Use Windows's default colour as the background of the window */
-    wincl.hbrBackground = CreateSolidBrush(RGB(224, 224, 224));
+    wincl.hbrBackground = CreateSolidBrush(COLOR_BG_DEFAULT);
 
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
@@ -107,10 +109,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     RECT rcClient;
     GetClientRect(hwnd, &rcClient);
 
-    int btnWidth = 200;
-    int btnHeight = 50;
-    int x = (rcClient.right - btnWidth) / 2;
-    int y = (rcClient.bottom - btnHeight) / 2 + 200;
+    int x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
+    int y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
 
     switch (message)                  /* handle the messages */
     {
@@ -126,7 +126,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 "BUTTON", // predefined class; Unicode assumed
                 "Play", // button text
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                x + (btnWidth / 2), y, btnWidth, btnHeight,
+                x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT,
                 hwnd, // parent window
                 (HMENU) ID_PLAY_BUTTON,
                 (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
@@ -138,7 +138,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 "BUTTON", // predefined class; Unicode assumed
                 "Rules", // button text
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                x - (btnWidth / 2), y, btnWidth, btnHeight,
+                x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT,
                 hwnd, // parent window
                 (HMENU) ID_RULES_BUTTON,
                 (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
@@ -162,7 +162,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 hdc, &rcClient,
                 _T("Wordle"),
                 72, true, _T("Cascadia Code"),
-                RGB(0,0,0), RGB(224,224,224),
+                COLOR_TITLE, COLOR_BG_DEFAULT,
                 DT_CENTER | DT_VCENTER | DT_SINGLELINE,
                 0, -0.2f
             );
@@ -172,7 +172,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 hdc, &rcClient,
                 _T("Guess a 5-letter word\r\nin 6 guesses"),
                 32, true, _T("Cascadia Code"),
-                RGB(0,0,0), RGB(224,224,224),
+                COLOR_DESCRIPTION, COLOR_BG_DEFAULT,
                 DT_CENTER | DT_VCENTER,
                 0, 0.5f
             );
@@ -185,10 +185,10 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 HWND hPlayBtn = GetDlgItem(hwnd, ID_PLAY_BUTTON);
                 HWND hRulesBtn = GetDlgItem(hwnd, ID_RULES_BUTTON);
                 if (hPlayBtn || hRulesBtn){
-                    x = (rcClient.right - btnWidth) / 2;
-                    y = (rcClient.bottom - btnHeight) / 2 + 200;
-                    MoveWindow(hPlayBtn, x + (btnWidth / 2), y, btnWidth, btnHeight, TRUE);
-                    MoveWindow(hRulesBtn, x - (btnWidth / 2), y, btnWidth, btnHeight, TRUE);
+                    x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
+                    y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
+                    MoveWindow(hPlayBtn, x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
+                    MoveWindow(hRulesBtn, x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
                 }
                 InvalidateRect(hwnd, NULL, TRUE);
             }
@@ -341,7 +341,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
             {
                 // changes dialog background color
                 if (!hDialogBrush){
-                    hDialogBrush = CreateSolidBrush(RGB(224, 224, 224));
+                    hDialogBrush = CreateSolidBrush(COLOR_BG_DEFAULT);
                 }
 
                 // loads bitmaps
@@ -368,12 +368,10 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 // changes close button position
                 HWND hCloseBtn = GetDlgItem(hDlg, ID_DIALOG_CLOSE_BUTTON);
                 GetClientRect(hDlg, &rcClient);
-                int btnWidth = 200;
-                int btnHeight = 50;
                 if (hCloseBtn){
-                    int x = (rcClient.right - btnWidth) / 2;
-                    int y = (rcClient.bottom - btnHeight) / 2 + 300;
-                    MoveWindow(hCloseBtn, x, y, btnWidth, btnHeight, TRUE);
+                    int x = (rcClient.right - DIALOG_BTN_WIDTH) / 2;
+                    int y = (rcClient.bottom - DIALOG_BTN_HEIGHT) / 2 + DIALOG_BTN_Y_OFFSET;
+                    MoveWindow(hCloseBtn, x, y, DIALOG_BTN_WIDTH, DIALOG_BTN_HEIGHT, TRUE);
                 }
             }
             return TRUE;
@@ -389,7 +387,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hdc, &rc,
                     _T("How To Play"),
                     40, true, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TITLE, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, -0.8f
                 );
@@ -398,7 +396,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hdc, &rc,
                     _T("Guess the Wordle in 6 tries."),
                     24, false, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_SINGLELINE ,
                     0.05f, -0.7f
                 );
@@ -408,7 +406,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     _T("• Each guess must be a valid 5-letter word.\r\n\n"
                        "• The color of the tiles will change to show\r\n  how close your guess was to the word."),
                     18, false, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_LEFT,
                     0.05f, -2.2f
                 );
@@ -417,7 +415,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hdc, &rc,
                     _T("Examples"),
                     18, true, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TITLE, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, -0.29f
                 );
@@ -430,7 +428,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hdc, &rc,
                     _T("W is in the word and in the correct spot."),
                     18, false, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, -0.11f
                 );
@@ -443,7 +441,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hdc, &rc,
                     _T("I is in the word but in the wrong spot."),
                     18, false, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, 0.09f
                 );
@@ -456,7 +454,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hdc, &rc,
                     _T("U is not in the word in any spot."),
                     18, false, _T("Cascadia Code"),
-                    RGB(0,0,0), RGB(224,224,224),
+                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, 0.29f
                 );

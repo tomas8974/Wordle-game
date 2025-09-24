@@ -1,0 +1,7 @@
+#define MAIN_BTN_WIDTH      200
+#define MAIN_BTN_HEIGHT     50
+#define MAIN_BTN_Y_OFFSET   200
+
+#define DIALOG_BTN_WIDTH    200
+#define DIALOG_BTN_HEIGHT   50
+#define DIALOG_BTN_Y_OFFSET 300
