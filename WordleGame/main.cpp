@@ -471,12 +471,18 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 case DIALOG_CLOSE_BUTTON:
                     {
                         EndDialog(hDlg, 0);
+                        if (hExample1) DeleteObject(hExample1);
+                        if (hExample2) DeleteObject(hExample2);
+                        if (hExample3) DeleteObject(hExample3);
                     }
                     return TRUE;
             }
             return TRUE;
         case WM_CLOSE:
             EndDialog(hDlg, 0);
+            if (hExample1) DeleteObject(hExample1);
+            if (hExample2) DeleteObject(hExample2);
+            if (hExample3) DeleteObject(hExample3);
             return TRUE;
     }
     return FALSE;
