@@ -14,9 +14,9 @@
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
-BOOL CALLBACK DialogProcedure(HWND, UINT, WPARAM, LPARAM);
-VOID paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp);
-VOID DrawCenteredText(
+BOOL CALLBACK RulesDialogProcedure(HWND, UINT, WPARAM, LPARAM);
+VOID paintBitmap(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp);
+VOID DrawTextAnywhere(
   HDC hdc,
   const RECT* rcClient,
   LPCTSTR text,
@@ -154,11 +154,11 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
             // draws wordle icon
             if (hWordleBitmap) {
-                paintBitmapInTheCenter(hdc, &rcClient , hWordleBitmap, 0.5f, 0.19f);
+                paintBitmap(hdc, &rcClient , hWordleBitmap, 0.5f, 0.19f);
             }
 
             // draws Wordle title
-            DrawCenteredText(
+            DrawTextAnywhere(
                 hdc, &rcClient,
                 _T("Wordle"),
                 72, true, _T("Cascadia Code"),
@@ -168,12 +168,12 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             );
 
             // draws short game description
-            DrawCenteredText(
+            DrawTextAnywhere(
                 hdc, &rcClient,
                 _T("Guess a 5-letter word\r\nin 6 guesses"),
                 32, true, _T("Cascadia Code"),
                 RGB(0,0,0), RGB(224,224,224),
-                DT_CENTER,
+                DT_CENTER | DT_VCENTER,
                 0, 0.5f
             );
 
@@ -212,10 +212,10 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     MessageBox(hwnd, "You started playing Wordle!", "Hooray!", MB_OK);
                     break;
                 case RULES_BUTTON:
-                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)DialogProcedure);
+                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
                     break;
                 case ID_READ_RULES:
-                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)DialogProcedure);
+                    DialogBox(NULL, MAKEINTRESOURCE(RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
                     break;
             }
             break;
@@ -242,7 +242,7 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-VOID paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
+VOID paintBitmap(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
     HDC hdcMem = CreateCompatibleDC(hdc);
     HBITMAP hOld = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
@@ -263,7 +263,7 @@ VOID paintBitmapInTheCenter(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, floa
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-VOID DrawCenteredText(
+VOID DrawTextAnywhere(
       HDC hdc,
       const RECT* rcClient,
       LPCTSTR text,
@@ -290,13 +290,39 @@ VOID DrawCenteredText(
     int textWidth = rcText.right - rcText.left;
     int textHeight = rcText.bottom - rcText.top;
 
-    int centerX = (rcClient->left + rcClient->right) / 2 + (int)(textWidth * xProp);
-    int centerY = (rcClient->top + rcClient->bottom) / 2 + (int)(textHeight * yProp);
+    int clientWidth  = rcClient->right - rcClient->left;
+    int clientHeight = rcClient->bottom - rcClient->top;
 
-    rcText.left   = centerX - textWidth / 2;
-    rcText.right  = centerX + textWidth / 2;
-    rcText.top    = centerY - textHeight / 2;
-    rcText.bottom = centerY + textHeight / 2;
+
+    // horizontal allignment
+    UINT horizontal = format & (DT_LEFT | DT_CENTER | DT_RIGHT);
+    if (horizontal == DT_CENTER) {
+        int centerX = (clientWidth / 2) + (int)(textWidth * xProp);
+        rcText.left   = centerX - textWidth / 2;
+        rcText.right  = centerX + textWidth / 2;
+    }
+    else if (horizontal == DT_RIGHT) {
+        rcText.right = rcClient->right + (int)(clientWidth * xProp);
+        rcText.left  = rcText.right - textWidth;
+    }
+    else { // DT_LEFT or default (DT_LEFT == 0)
+        rcText.left  = rcClient->left + (int)(clientWidth * xProp);
+        rcText.right = rcText.left + textWidth;
+    }
+
+    // vertical allignment
+    UINT vertical = format & (DT_TOP | DT_VCENTER | DT_BOTTOM);
+    if (vertical == DT_VCENTER) {
+        int centerY = (clientHeight / 2) + (int)(textHeight * yProp);
+        rcText.top    = centerY - textHeight / 2;
+        rcText.bottom = centerY + textHeight / 2;
+    } else if (vertical == DT_BOTTOM) {
+        rcText.bottom = rcClient->bottom + (int)(clientHeight * yProp);
+        rcText.top    = rcText.bottom - textHeight;
+    } else { // DT_TOP or default
+        rcText.top    = rcClient->top + (int)(clientHeight * yProp);
+        rcText.bottom = rcText.top + textHeight;
+    }
 
     DrawText(hdc, text, -1, &rcText, format);
 
@@ -304,8 +330,11 @@ VOID DrawCenteredText(
     DeleteObject(hFont);
 }
 
-BOOL CALLBACK DialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam){
+BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam){
     static HBRUSH hDialogBrush = NULL;
+    static HBITMAP hExample1 = NULL;
+    static HBITMAP hExample2 = NULL;
+    static HBITMAP hExample3 = NULL;
 
     switch(uMsg){
         case WM_INITDIALOG:
@@ -314,6 +343,10 @@ BOOL CALLBACK DialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
                 if (!hDialogBrush){
                     hDialogBrush = CreateSolidBrush(RGB(224, 224, 224));
                 }
+
+                hExample1 = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_EXAMPLE_1));
+                hExample2 = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_EXAMPLE_2));
+                hExample3 = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_EXAMPLE_3));
 
                 // changes dialogs position to the center
                 RECT rc, rcOwner, rcClient;
@@ -351,13 +384,80 @@ BOOL CALLBACK DialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
                 GetClientRect(hDlg, &rc);
 
                 // draws Rules title
-                DrawCenteredText(
+                DrawTextAnywhere(
                     hdc, &rc,
-                    _T("Rules"),
+                    _T("How To Play"),
                     40, true, _T("Cascadia Code"),
                     RGB(0,0,0), RGB(224,224,224),
-                    DT_CENTER | DT_VCENTER | DT_SINGLELINE,
-                    0, -0.7f
+                    DT_VCENTER | DT_SINGLELINE,
+                    0.05f, -0.8f
+                );
+
+                DrawTextAnywhere(
+                    hdc, &rc,
+                    _T("Guess the Wordle in 6 tries."),
+                    24, false, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_VCENTER | DT_SINGLELINE ,
+                    0.05f, -0.7f
+                );
+
+                DrawTextAnywhere(
+                    hdc, &rc,
+                    _T("• Each guess must be a valid 5-letter word.\r\n\n"
+                       "• The color of the tiles will change to show\r\n  how close your guess was to the word."),
+                    18, false, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_VCENTER | DT_LEFT,
+                    0.05f, -2.2f
+                );
+
+                DrawTextAnywhere(
+                    hdc, &rc,
+                    _T("Examples"),
+                    18, true, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_VCENTER | DT_SINGLELINE,
+                    0.05f, -0.29f
+                );
+
+                if (hExample1) {
+                    paintBitmap(hdc, &rc , hExample1, 0.195f, 0.405f);
+                }
+
+                DrawTextAnywhere(
+                    hdc, &rc,
+                    _T("W is in the word and in the correct spot."),
+                    18, false, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_VCENTER | DT_SINGLELINE,
+                    0.05f, -0.11f
+                );
+
+                if (hExample2) {
+                    paintBitmap(hdc, &rc , hExample2, 0.195f, 0.51f);
+                }
+
+                DrawTextAnywhere(
+                    hdc, &rc,
+                    _T("I is in the word but in the wrong spot."),
+                    18, false, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_VCENTER | DT_SINGLELINE,
+                    0.05f, 0.09f
+                );
+
+                if (hExample3) {
+                    paintBitmap(hdc, &rc , hExample3, 0.195f, 0.61f);
+                }
+
+                DrawTextAnywhere(
+                    hdc, &rc,
+                    _T("U is not in the word in any spot."),
+                    18, false, _T("Cascadia Code"),
+                    RGB(0,0,0), RGB(224,224,224),
+                    DT_VCENTER | DT_SINGLELINE,
+                    0.05f, 0.29f
                 );
 
                 EndPaint(hDlg, &ps);

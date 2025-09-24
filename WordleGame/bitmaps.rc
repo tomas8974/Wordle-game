@@ -1,3 +1,6 @@
 #include "bitmaps.h"
 
 IDB_WORDLE_ICON BITMAP "wordle-icon.bmp"
+IDB_EXAMPLE_1 BITMAP "example-1.bmp"
+IDB_EXAMPLE_2 BITMAP "example-2.bmp"
+IDB_EXAMPLE_3 BITMAP "example-3.bmp"

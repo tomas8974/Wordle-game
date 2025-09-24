@@ -1,1 +1,4 @@
 #define IDB_WORDLE_ICON 101
+#define IDB_EXAMPLE_1 102
+#define IDB_EXAMPLE_2 103
+#define IDB_EXAMPLE_3 104

@@ -15,12 +15,12 @@
 
 1757839457 c:\users\tomas\desktop\vu\5 semestras\windows api\wordlegame\bitmaps.h
 
-1757838786 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.rc
+1758698916 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.rc
 	"bitmaps.h"
 
-1757839457 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.h
+1758698873 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.h
 
-1758629347 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\main.cpp
+1758700036 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\main.cpp
 	<tchar.h>
 	<windows.h>
 	"menu.h"
@@ -38,6 +38,6 @@
 1758628897 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\rulesdialog.rc
 	"dialog.h"
 
-1758625691 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\dialog.h
+1758698837 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\dialog.h
 	<windows.h>
 
