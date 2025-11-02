@@ -17,10 +17,10 @@
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
 BOOL CALLBACK RulesDialogProcedure(HWND, UINT, WPARAM, LPARAM);
-VOID paintBitmap(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp, float yProp);
+VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp, float yProp);
+VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap);
 VOID DrawTextAnywhere(
-  HDC hdc,
-  const RECT* rcClient,
+  HWND hwnd,
   LPCTSTR text,
   int fontSize,
   bool bold,
@@ -34,7 +34,7 @@ VOID DrawTextAnywhere(
 /*  Make the class name into a global variable  */
 TCHAR szClassName[ ] = _T("CodeBlocksWindowsApp");
 
-HBITMAP hWordleBitmap = NULL;
+
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -108,19 +108,18 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 {
     RECT rcClient;
     GetClientRect(hwnd, &rcClient);
-
     int x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
     int y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
-
+    static HBITMAP hWordleBitmap = NULL;
     switch (message)                  /* handle the messages */
     {
         case WM_CREATE:
 
-          hWordleBitmap = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_WORDLE_ICON));
-          if (!hWordleBitmap){
-            MessageBox(hwnd, _T("Failed to load wordle bitmap!"), _T("Error"), MB_ICONERROR);
-          }
 
+          hWordleBitmap = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_WORDLE_ICON));
+          if(!hWordleBitmap){
+            MessageBox(hwnd,"Failed to load Wordle Bitmap!", "Error", MB_ICONERROR);
+          }
           // play button
           CreateWindow(
                 "BUTTON", // predefined class; Unicode assumed
@@ -152,34 +151,13 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
 
-            // draws wordle icon
-            if (hWordleBitmap) {
-                paintBitmap(hdc, &rcClient , hWordleBitmap, 0.5f, 0.19f);
-            }
-
-            // draws Wordle title
-            DrawTextAnywhere(
-                hdc, &rcClient,
-                _T("Wordle"),
-                72, true, _T("Cascadia Code"),
-                COLOR_TITLE, COLOR_BG_DEFAULT,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE,
-                0, -0.2f
-            );
-
-            // draws short game description
-            DrawTextAnywhere(
-                hdc, &rcClient,
-                _T("Guess a 5-letter word\r\nin 6 guesses"),
-                32, true, _T("Cascadia Code"),
-                COLOR_DESCRIPTION, COLOR_BG_DEFAULT,
-                DT_CENTER | DT_VCENTER,
-                0, 0.5f
-            );
+            // draws menu
+            drawMenu(hwnd, hWordleBitmap);
 
             EndPaint(hwnd, &ps);
             break;
         }
+        // moves objects when window is resized
         case WM_SIZE:
             {
                 HWND hPlayBtn = GetDlgItem(hwnd, ID_PLAY_BUTTON);
@@ -220,7 +198,6 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             }
             break;
 
-
         case WM_DESTROY:
             if (hWordleBitmap) DeleteObject(hWordleBitmap);
             PostQuitMessage (0);       /* send a WM_QUIT to the message queue */
@@ -240,17 +217,52 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
     );
 }
 
+VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap){
+    RECT rcClient;
+    GetClientRect(hwnd, &rcClient);
+
+    // draws wordle icon
+    if (hWordleBitmap){
+        paintBitmap(hwnd, hWordleBitmap, 0.5f, 0.19f);
+    }
+    // draws Wordle title
+    DrawTextAnywhere(
+        hwnd,
+        _T("Wordle"),
+        72, true, _T("Cascadia Code"),
+        COLOR_TITLE, COLOR_BG_DEFAULT,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+        0, -0.2f
+    );
+
+    // draws short game description
+    DrawTextAnywhere(
+        hwnd,
+        _T("Guess a 5-letter word\r\nin 6 guesses"),
+        32, true, _T("Cascadia Code"),
+        COLOR_DESCRIPTION, COLOR_BG_DEFAULT,
+        DT_CENTER | DT_VCENTER,
+        0, 0.5f
+    );
+}
+
 // xProp - horizontal proportion
 // yProp - vertical proportion
-VOID paintBitmap(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
-    HDC hdcMem = CreateCompatibleDC(hdc);
+VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
+    HDC hdc;
+    hdc = GetDC(hwnd);
+
+    RECT rcClient;
+    GetClientRect(hwnd, &rcClient);
+
+    HDC hdcMem = CreateCompatibleDC(hdc);;
     HBITMAP hOld = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
     BITMAP bm;
     GetObject(hBitmap, sizeof(bm), &bm);
 
-    int clientWidth = rcClient->right - rcClient->left;
-    int clientHeight = rcClient->bottom - rcClient->top;
+    int clientWidth = rcClient.right - rcClient.left;
+    int clientHeight = rcClient.bottom - rcClient.top;
 
     int bmpX = (int)(clientWidth * xProp) - (bm.bmWidth / 2);
     int bmpY = (int)(clientHeight * yProp) - (bm.bmHeight / 2);
@@ -259,13 +271,13 @@ VOID paintBitmap(HDC hdc, const RECT* rcClient, HBITMAP hBitmap, float xProp = 0
 
     SelectObject(hdcMem, hOld);
     DeleteDC(hdcMem);
+    ReleaseDC(hwnd, hdc);
 }
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
 VOID DrawTextAnywhere(
-      HDC hdc,
-      const RECT* rcClient,
+      HWND hwnd,
       LPCTSTR text,
       int fontSize,
       bool bold,
@@ -277,6 +289,13 @@ VOID DrawTextAnywhere(
       float yProp = 0.0f
     )
 {
+    HDC hdc;
+    hdc = GetDC(hwnd);
+
+    RECT rcClient;
+    GetClientRect(hwnd, &rcClient);
+
+
     RECT rcText;
     HFONT hFont = CreateCustomFont(fontSize, bold, fontName);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
@@ -284,14 +303,14 @@ VOID DrawTextAnywhere(
     SetBkColor(hdc, bkColor);
     SetTextColor(hdc, textColor);
 
-    rcText = {0, 0, rcClient->right - rcClient->left, rcClient->bottom - rcClient->top};
+    rcText = {0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top};
     DrawText(hdc, text, -1, &rcText, format | DT_CALCRECT);
 
     int textWidth = rcText.right - rcText.left;
     int textHeight = rcText.bottom - rcText.top;
 
-    int clientWidth  = rcClient->right - rcClient->left;
-    int clientHeight = rcClient->bottom - rcClient->top;
+    int clientWidth  = rcClient.right - rcClient.left;
+    int clientHeight = rcClient.bottom - rcClient.top;
 
 
     // horizontal allignment
@@ -302,11 +321,11 @@ VOID DrawTextAnywhere(
         rcText.right  = centerX + textWidth / 2;
     }
     else if (horizontal == DT_RIGHT) {
-        rcText.right = rcClient->right + (int)(clientWidth * xProp);
+        rcText.right = rcClient.right + (int)(clientWidth * xProp);
         rcText.left  = rcText.right - textWidth;
     }
     else { // DT_LEFT or default (DT_LEFT == 0)
-        rcText.left  = rcClient->left + (int)(clientWidth * xProp);
+        rcText.left  = rcClient.left + (int)(clientWidth * xProp);
         rcText.right = rcText.left + textWidth;
     }
 
@@ -317,10 +336,10 @@ VOID DrawTextAnywhere(
         rcText.top    = centerY - textHeight / 2;
         rcText.bottom = centerY + textHeight / 2;
     } else if (vertical == DT_BOTTOM) {
-        rcText.bottom = rcClient->bottom + (int)(clientHeight * yProp);
+        rcText.bottom = rcClient.bottom + (int)(clientHeight * yProp);
         rcText.top    = rcText.bottom - textHeight;
     } else { // DT_TOP or default
-        rcText.top    = rcClient->top + (int)(clientHeight * yProp);
+        rcText.top    = rcClient.top + (int)(clientHeight * yProp);
         rcText.bottom = rcText.top + textHeight;
     }
 
@@ -328,6 +347,7 @@ VOID DrawTextAnywhere(
 
     SelectObject(hdc, hOldFont);
     DeleteObject(hFont);
+    ReleaseDC(hwnd, hdc);
 }
 
 BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam){
@@ -384,7 +404,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
 
                 // draws Rules title
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("How To Play"),
                     40, true, _T("Cascadia Code"),
                     COLOR_TITLE, COLOR_BG_DEFAULT,
@@ -393,7 +413,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("Guess the Wordle in 6 tries."),
                     24, false, _T("Cascadia Code"),
                     COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
@@ -402,7 +422,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("• Each guess must be a valid 5-letter word.\r\n\n"
                        "• The color of the tiles will change to show\r\n  how close your guess was to the word."),
                     18, false, _T("Cascadia Code"),
@@ -412,7 +432,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("Examples"),
                     18, true, _T("Cascadia Code"),
                     COLOR_TITLE, COLOR_BG_DEFAULT,
@@ -421,11 +441,11 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 if (hExample1) {
-                    paintBitmap(hdc, &rc , hExample1, 0.195f, 0.405f);
+                    paintBitmap(hDlg, hExample1, 0.195f, 0.405f);
                 }
 
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("W is in the word and in the correct spot."),
                     18, false, _T("Cascadia Code"),
                     COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
@@ -434,11 +454,11 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 if (hExample2) {
-                    paintBitmap(hdc, &rc , hExample2, 0.195f, 0.51f);
+                    paintBitmap(hDlg, hExample2, 0.195f, 0.51f);
                 }
 
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("I is in the word but in the wrong spot."),
                     18, false, _T("Cascadia Code"),
                     COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
@@ -447,11 +467,11 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 if (hExample3) {
-                    paintBitmap(hdc, &rc , hExample3, 0.195f, 0.61f);
+                    paintBitmap(hDlg, hExample3, 0.195f, 0.61f);
                 }
 
                 DrawTextAnywhere(
-                    hdc, &rc,
+                    hDlg,
                     _T("U is not in the word in any spot."),
                     18, false, _T("Cascadia Code"),
                     COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
@@ -470,9 +490,6 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 case ID_DIALOG_CLOSE_BUTTON:
                     {
                         EndDialog(hDlg, 0);
-                        if (hExample1) DeleteObject(hExample1);
-                        if (hExample2) DeleteObject(hExample2);
-                        if (hExample3) DeleteObject(hExample3);
                     }
                     return TRUE;
             }
@@ -482,6 +499,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
             if (hExample1) DeleteObject(hExample1);
             if (hExample2) DeleteObject(hExample2);
             if (hExample3) DeleteObject(hExample3);
+            if (hDialogBrush) DeleteObject(hDialogBrush);
             return TRUE;
     }
     return FALSE;

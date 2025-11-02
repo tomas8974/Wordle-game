@@ -37,6 +37,7 @@
 			<Add library="kernel32" />
 			<Add library="comctl32" />
 		</Linker>
+		<Unit filename="RulesDialog.h" />
 		<Unit filename="RulesDialog.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
@@ -45,12 +46,16 @@
 			<Option compilerVar="WINDRES" />
 		</Unit>
 		<Unit filename="buttons.h" />
-		<Unit filename="dialog.h" />
+		<Unit filename="colors.h" />
+		<Unit filename="example-1.bmp" />
+		<Unit filename="example-2.bmp" />
+		<Unit filename="example-3.bmp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="menu.h" />
 		<Unit filename="menu.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
+		<Unit filename="ui_constants.h" />
 		<Unit filename="wordle-icon.bmp" />
 		<Extensions />
 	</Project>
