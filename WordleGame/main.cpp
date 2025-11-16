@@ -12,6 +12,7 @@
 #include "RulesDialog.h"
 #include "ui_constants.h"
 #include "colors.h"
+#include <stdio.h>
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -19,6 +20,9 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
 BOOL CALLBACK RulesDialogProcedure(HWND, UINT, WPARAM, LPARAM);
 VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp, float yProp);
 VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap);
+void drawGame(HWND hwnd);
+void drawKeyboard(HWND hwnd, int topY);
+void RepositionKeyboard(HWND hwnd, int topY);
 VOID DrawTextAnywhere(
   HWND hwnd,
   LPCTSTR text,
@@ -34,7 +38,19 @@ VOID DrawTextAnywhere(
 /*  Make the class name into a global variable  */
 TCHAR szClassName[ ] = _T("CodeBlocksWindowsApp");
 
+enum APP_STATE{
+    STATE_MENU,
+    STATE_GAME
+};
 
+struct KeyBtn {
+    HWND hWnd;
+    char label[8];
+    int x, y, w, h;
+};
+
+KeyBtn keyboardButtons[30];
+int keyboardBtnCount = 0;
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -111,6 +127,10 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     int x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
     int y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
     static HBITMAP hWordleBitmap = NULL;
+    static HWND hPlayBtn = NULL;
+    static HWND hRulesBtn = NULL;
+    static APP_STATE appState = STATE_MENU;
+
     switch (message)                  /* handle the messages */
     {
         case WM_CREATE:
@@ -121,7 +141,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             MessageBox(hwnd,"Failed to load Wordle Bitmap!", "Error", MB_ICONERROR);
           }
           // play button
-          CreateWindow(
+          hPlayBtn = CreateWindow(
                 "BUTTON", // predefined class; Unicode assumed
                 "Play", // button text
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
@@ -133,7 +153,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             );
 
             // rules button
-            CreateWindow(
+            hRulesBtn = CreateWindow(
                 "BUTTON", // predefined class; Unicode assumed
                 "Rules", // button text
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
@@ -151,8 +171,12 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
 
-            // draws menu
-            drawMenu(hwnd, hWordleBitmap);
+            if (appState == STATE_MENU) {
+                drawMenu(hwnd, hWordleBitmap);
+            } else if (appState == STATE_GAME) {
+                drawGame(hwnd);
+            }
+
 
             EndPaint(hwnd, &ps);
             break;
@@ -162,11 +186,18 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             {
                 HWND hPlayBtn = GetDlgItem(hwnd, ID_PLAY_BUTTON);
                 HWND hRulesBtn = GetDlgItem(hwnd, ID_RULES_BUTTON);
-                if (hPlayBtn || hRulesBtn){
+                if (hPlayBtn || hRulesBtn && appState == STATE_MENU){
                     x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
                     y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
                     MoveWindow(hPlayBtn, x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
                     MoveWindow(hRulesBtn, x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
+                }
+                if (appState == STATE_GAME) {
+                    int cellSize = rcClient.bottom / 12;
+                    int gridHeight = cellSize * 6;
+                    int topY = cellSize + gridHeight + cellSize / 2;
+
+                    RepositionKeyboard(hwnd, topY);
                 }
                 InvalidateRect(hwnd, NULL, TRUE);
             }
@@ -182,20 +213,44 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             }
             break;
         case WM_COMMAND:
-            switch(LOWORD(wParam)){
-                case ID_FILE_EXIT:
-                    SendMessage(hwnd, WM_CLOSE, 0, 0);
-                    break;
-                case ID_PLAY_BUTTON:
-                    MessageBox(hwnd, "You started playing Wordle!", "Hooray!", MB_OK);
-                    break;
-                case ID_RULES_BUTTON:
-                    DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
-                    break;
-                case ID_READ_RULES:
-                    DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
-                    break;
+            {
+                int id = LOWORD(wParam);
+                switch(id){
+                    case ID_FILE_EXIT:
+                        SendMessage(hwnd, WM_CLOSE, 0, 0);
+                        break;
+                    case ID_PLAY_BUTTON:
+                        appState = STATE_GAME;
+
+                        ShowWindow(hPlayBtn, SW_HIDE);
+                        ShowWindow(hRulesBtn, SW_HIDE);
+
+                        InvalidateRect(hwnd, NULL, TRUE);
+                        break;
+                    case ID_RULES_BUTTON:
+                        DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
+                        break;
+                    case ID_READ_RULES:
+                        DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
+                        break;
+                    default:
+                        // keyboard buttons
+                        {
+                            if (id >= 1000 && id < 1050)
+                            {
+                                int index = id - 1000;
+                                char *label = keyboardButtons[index].label;
+
+                                char msg[64];
+                                sprintf(msg, "You pressed: %s", label);
+
+                                MessageBoxA(hwnd, msg, "Key Pressed", MB_OK);
+                            }
+                        }
+                        break;
+                }
             }
+
             break;
 
         case WM_DESTROY:
@@ -207,6 +262,168 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     }
 
     return 0;
+}
+
+void drawGame(HWND hwnd) {
+
+    HDC hdc = GetDC(hwnd);
+
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
+    int cellSize = rc.bottom / 12;
+    int gridWidth = cellSize * 5;
+    int gridHeight = cellSize * 6;
+
+    int startX = (rc.right - gridWidth) / 2;
+    int startY = rc.top + cellSize;
+
+    HBRUSH hBrush = CreateSolidBrush(COLOR_BG_DEFAULT);
+    HPEN hPen = CreatePen(PS_SOLID, 3, COLOR_GRAY);
+
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+    HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
+
+    // Draw 6 rows × 5 columns
+    for (int r = 0; r < 6; r++) {
+        for (int c = 0; c < 5; c++) {
+            Rectangle(
+                hdc,
+                startX + c * cellSize,
+                startY + r * cellSize,
+                startX + (c + 1) * cellSize,
+                startY + (r + 1) * cellSize
+            );
+        }
+    }
+
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+    DeleteObject(hBrush);
+    DeleteObject(hPen);
+
+    ReleaseDC(hwnd, hdc);
+
+    drawKeyboard(hwnd, startY + gridHeight + cellSize/2);
+}
+
+
+void drawKeyboard(HWND hwnd, int topY) {
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    static bool created = false;
+
+    if (created) return;
+
+    const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
+
+    int keyWidth = rc.right / 14;
+    int keyHeight = keyWidth * 0.8;
+
+    keyboardBtnCount = 0; // reset list
+
+    for (int r = 0; r < 3; r++) {
+
+        int rowLen = strlen(rows[r]);
+        int totalKeys = rowLen;
+
+        if (r == 2) totalKeys += 2; // ENTER + BACKSPACE
+
+        int totalWidth = totalKeys * keyWidth;
+        int startX = (rc.right - totalWidth) / 2;
+        int y = topY + r * (keyHeight + 5);
+
+        int x = startX;
+
+        // enter button
+        if (r == 2) {
+            keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd =
+                CreateWindow("BUTTON", "ENTER",
+                    WS_CHILD | WS_VISIBLE,
+                    x, y, keyWidth, keyHeight,
+                    hwnd, (HMENU)ID_ENTER_BUTTON,
+                    NULL, NULL);
+
+            strcpy(keyboardButtons[ID_ENTER_BUTTON - 1000].label, "ENTER");
+            x += keyWidth;
+        }
+
+        // letter keys
+        for (int i = 0; i < rowLen; i++) {
+            char txt[2] = { rows[r][i], 0 };
+
+            keyboardButtons[keyboardBtnCount].hWnd =
+                CreateWindow("BUTTON", txt,
+                    WS_CHILD | WS_VISIBLE,
+                    x, y, keyWidth, keyHeight,
+                    hwnd, (HMENU)(1000 + keyboardBtnCount),
+                    NULL, NULL);
+
+            strcpy(keyboardButtons[keyboardBtnCount].label, txt);
+            keyboardBtnCount++;
+
+            x += keyWidth;
+        }
+
+        // backspace
+        if (r == 2) {
+            keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd =
+                CreateWindow("BUTTON", "<-",
+                    WS_CHILD | WS_VISIBLE,
+                    x, y, keyWidth, keyHeight,
+                    hwnd, (HMENU)ID_BACKSPACE_BUTTON,
+                    NULL, NULL);
+
+            strcpy(keyboardButtons[ID_BACKSPACE_BUTTON - 1000].label, "<-");
+        }
+        created = true;
+    }
+}
+
+
+void RepositionKeyboard(HWND hwnd, int topY) {
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
+    const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
+
+    int keyWidth  = rc.right / 14;
+    int keyHeight = keyWidth * 0.8;
+
+    int index = 0; // walks through letter buttons
+
+    for (int r = 0; r < 3; r++) {
+
+        int rowLen = strlen(rows[r]);
+        int totalKeys = rowLen;
+
+        if (r == 2) totalKeys += 2; // enter and backspace
+
+        int totalWidth = totalKeys * keyWidth;
+        int startX = (rc.right - totalWidth) / 2;
+        int y = topY + r * (keyHeight + 5);
+
+        int x = startX;
+
+        // enter button
+        if (r == 2) {
+            MoveWindow(GetDlgItem(hwnd, ID_ENTER_BUTTON), x, y, keyWidth, keyHeight, TRUE);
+            x += keyWidth;
+        }
+
+        // letter keys
+        for (int i = 0; i < rowLen; i++) {
+            MoveWindow(keyboardButtons[index].hWnd,x, y, keyWidth, keyHeight, TRUE);
+
+            index++;
+            x += keyWidth;
+        }
+
+        // backspace
+        if (r == 2) {
+            MoveWindow(GetDlgItem(hwnd, ID_BACKSPACE_BUTTON), x, y, keyWidth, keyHeight, TRUE);
+        }
+    }
 }
 
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
@@ -495,11 +712,18 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
             }
             return TRUE;
         case WM_CLOSE:
-            EndDialog(hDlg, 0);
+            /*EndDialog(hDlg, 0);
             if (hExample1) DeleteObject(hExample1);
             if (hExample2) DeleteObject(hExample2);
             if (hExample3) DeleteObject(hExample3);
             if (hDialogBrush) DeleteObject(hDialogBrush);
+            */return TRUE;
+        case WM_DESTROY:
+            EndDialog(hDlg, 0);
+            if (hExample1) DeleteObject(hExample1);
+            if (hExample2) DeleteObject(hExample2);
+            if (hExample3) DeleteObject(hExample3);
+            //if (hDialogBrush) DeleteObject(hDialogBrush);
             return TRUE;
     }
     return FALSE;
