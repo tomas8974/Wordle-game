@@ -23,6 +23,10 @@ VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap);
 void drawGame(HWND hwnd);
 void drawKeyboard(HWND hwnd, int topY);
 void RepositionKeyboard(HWND hwnd, int topY);
+void drawLetters(HDC hdc, int cellSize, int startX, int startY);
+void handleEnterButton(HWND hwnd);
+void handleLetterButtons(int id);
+void handleBackspaceButton();
 VOID DrawTextAnywhere(
   HWND hwnd,
   LPCTSTR text,
@@ -51,6 +55,12 @@ struct KeyBtn {
 
 KeyBtn keyboardButtons[30];
 int keyboardBtnCount = 0;
+
+char grid [6][6] = {0};
+int currentRow = 0;
+int currentColumn = 0;
+APP_STATE appState = STATE_MENU;
+
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -129,7 +139,6 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     static HBITMAP hWordleBitmap = NULL;
     static HWND hPlayBtn = NULL;
     static HWND hRulesBtn = NULL;
-    static APP_STATE appState = STATE_MENU;
 
     switch (message)                  /* handle the messages */
     {
@@ -236,21 +245,56 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     default:
                         // keyboard buttons
                         {
-                            if (id >= 1000 && id < 1050)
+                            if (id >= 1000 && id < 1026)
                             {
-                                int index = id - 1000;
-                                char *label = keyboardButtons[index].label;
-
-                                char msg[64];
-                                sprintf(msg, "You pressed: %s", label);
-
-                                MessageBoxA(hwnd, msg, "Key Pressed", MB_OK);
+                                handleLetterButtons(id);
                             }
+                            else if (id == ID_BACKSPACE_BUTTON)
+                            {
+                                handleBackspaceButton();
+                            }
+                            else if (id == ID_ENTER_BUTTON)
+                            {
+
+                                handleEnterButton(hwnd);
+                            }
+                            InvalidateRect(hwnd, NULL, TRUE);
+                            SetFocus(hwnd);
+                            printf("word : %s\n", grid[currentRow]);
+
                         }
                         break;
                 }
             }
+            break;
+            case WM_KEYDOWN:
+                {
+                    int vk = (int)wParam;
+                    if (appState == STATE_GAME)
+                    {
+                        if (vk >= 'A' && vk <= 'Z')
+                        {
+                            char letter = (char)vk;
+                            for (int i = 0; i < keyboardBtnCount; i++)
+                            {
+                                if (_stricmp(keyboardButtons[i].label, &letter) == 0)
+                                {
+                                    SendMessage(hwnd, WM_COMMAND, (1000 + i), 0);
+                                    break;
+                                }
+                            }
+                        }
+                        if (vk == VK_RETURN)
+                        {
+                            SendMessage(hwnd, WM_COMMAND, ID_ENTER_BUTTON, 0);
+                        }
 
+                        if (vk == VK_BACK)
+                        {
+                            SendMessage(hwnd, WM_COMMAND, ID_BACKSPACE_BUTTON, 0);
+                        }
+                    }
+                }
             break;
 
         case WM_DESTROY:
@@ -262,6 +306,41 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     }
 
     return 0;
+}
+
+void handleLetterButtons(int id){
+    int index = id - 1000;
+    char *label = keyboardButtons[index].label;
+    char ch = label[0];
+
+    if (currentColumn < 5){
+        grid[currentRow][currentColumn] = ch;
+
+        currentColumn++;
+
+        grid[currentRow][currentColumn] = '\0';
+    }
+}
+
+void handleBackspaceButton(){
+    if (currentColumn > 0){
+        currentColumn--;
+
+        grid[currentRow][currentColumn] = '\0';
+    }
+}
+
+void handleEnterButton(HWND hwnd){
+    if (currentColumn < 5){
+        MessageBoxA(hwnd, "Not enough letters!", "Wordle", MB_OK);
+    }
+    else {
+        char msg[64];
+        sprintf(msg, "Submitted word: %s", grid[currentRow]);
+        MessageBoxA(hwnd, msg, "Wordle", MB_OK);
+        currentColumn = 0;
+        currentRow++;
+    }
 }
 
 void drawGame(HWND hwnd) {
@@ -302,11 +381,54 @@ void drawGame(HWND hwnd) {
     DeleteObject(hBrush);
     DeleteObject(hPen);
 
+    drawLetters(hdc, cellSize, startX, startY);
+
     ReleaseDC(hwnd, hdc);
 
     drawKeyboard(hwnd, startY + gridHeight + cellSize/2);
-}
 
+}
+void drawLetters(HDC hdc, int cellSize, int startX, int startY){
+    // draws letters on grid
+    HFONT hFont = CreateFontA(
+        cellSize * 0.6, 0, 0, 0,
+        FW_BOLD, FALSE, FALSE, FALSE,
+        ANSI_CHARSET, OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        "Arial"
+    );
+
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, COLOR_BLACK);
+
+    for (int r = 0; r < 6; r++) {
+        for (int c = 0; c < 5; c++) {
+
+            char letter = grid[r][c];
+            if (letter == 0) continue;
+
+            RECT cell = {
+                startX + c * cellSize,
+                startY + r * cellSize,
+                startX + (c+1) * cellSize,
+                startY + (r+1) * cellSize
+            };
+
+            DrawTextA(
+                hdc,
+                &letter, 1,
+                &cell,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE
+            );
+        }
+    }
+
+    SelectObject(hdc, hOldFont);
+    DeleteObject(hFont);
+
+}
 
 void drawKeyboard(HWND hwnd, int topY) {
     RECT rc;
@@ -327,7 +449,7 @@ void drawKeyboard(HWND hwnd, int topY) {
         int rowLen = strlen(rows[r]);
         int totalKeys = rowLen;
 
-        if (r == 2) totalKeys += 2; // ENTER + BACKSPACE
+        if (r == 2) totalKeys += 2;
 
         int totalWidth = totalKeys * keyWidth;
         int startX = (rc.right - totalWidth) / 2;
