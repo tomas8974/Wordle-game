@@ -18,17 +18,23 @@
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
 BOOL CALLBACK RulesDialogProcedure(HWND, UINT, WPARAM, LPARAM);
-VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp, float yProp);
-VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap);
+void paintBitmap(HWND hwnd, HDC hdc, HBITMAP hBitmap, float xProp, float yProp);
+void drawMenu(HWND hwnd, HDC hdc);
 void drawGame(HWND hwnd, HDC hdc);
 void drawKeyboard(HWND hwnd, int topY);
-void RepositionKeyboard(HWND hwnd, int topY);
+void RepositionKeyboard(HWND hwnd);
 void drawLetters(HDC hdc, int cellSize, int startX, int startY);
 void handleEnterButton(HWND hwnd);
 void handleLetterButtons(int id);
 void handleBackspaceButton();
+void deleteKeyboard();
+void drawGameFinished(HWND hwnd, HDC hdc);
 void paintCells(HDC hdc, int startX, int startY, int cellSize);
-VOID DrawTextAnywhere(
+void destroyButtons(HWND* buttons, int btnCount);
+HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, int id);
+void resetGame();
+void RepositionUI(HWND hwnd);
+void DrawTextAnywhere(
   HWND hwnd,
   LPCTSTR text,
   int fontSize,
@@ -45,7 +51,8 @@ TCHAR szClassName[ ] = _T("CodeBlocksWindowsApp");
 
 enum APP_STATE{
     STATE_MENU,
-    STATE_GAME
+    STATE_GAME,
+    STATE_GAME_FINISHED
 };
 
 struct KeyBtn {
@@ -62,7 +69,14 @@ int cellColor[6][5] = {0};
 int currentRow = 0;
 int currentColumn = 0;
 APP_STATE appState = STATE_MENU;
-
+HWND hPlayBtn = NULL;
+HWND hRulesBtn = NULL;
+HWND hReplayBtn = NULL;
+HWND hBackBtn = NULL;
+HBITMAP hWordleBitmap = NULL;
+bool areMenuItemsCreated = false;
+bool isKeyboardCreated = false;
+bool finishedButtonsCreated = false;
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -134,82 +148,29 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
 
 LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    RECT rcClient;
-    GetClientRect(hwnd, &rcClient);
-    int x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
-    int y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
-    static HBITMAP hWordleBitmap = NULL;
-    static HWND hPlayBtn = NULL;
-    static HWND hRulesBtn = NULL;
-
     switch (message)                  /* handle the messages */
     {
-        case WM_CREATE:
-
-
-          hWordleBitmap = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_WORDLE_ICON));
-          if(!hWordleBitmap){
-            MessageBox(hwnd,"Failed to load Wordle Bitmap!", "Error", MB_ICONERROR);
-          }
-          // play button
-          hPlayBtn = CreateWindow(
-                "BUTTON", // predefined class; Unicode assumed
-                "Play", // button text
-                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT,
-                hwnd, // parent window
-                (HMENU) ID_PLAY_BUTTON,
-                (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
-                NULL
-            );
-
-            // rules button
-            hRulesBtn = CreateWindow(
-                "BUTTON", // predefined class; Unicode assumed
-                "Rules", // button text
-                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT,
-                hwnd, // parent window
-                (HMENU) ID_RULES_BUTTON,
-                (HINSTANCE) GetWindowLong(hwnd, GWLP_HINSTANCE),
-                NULL
-            );
-
-            break;
-
         case WM_PAINT:
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
 
             if (appState == STATE_MENU) {
-                drawMenu(hwnd, hWordleBitmap);
-            } else if (appState == STATE_GAME) {
+                drawMenu(hwnd, hdc);
+            }
+            else if (appState == STATE_GAME) {
                 drawGame(hwnd, hdc);
             }
-
-
+            else if (appState == STATE_GAME_FINISHED){
+                drawGameFinished(hwnd, hdc);
+            }
             EndPaint(hwnd, &ps);
             break;
         }
         // moves objects when window is resized
         case WM_SIZE:
             {
-                HWND hPlayBtn = GetDlgItem(hwnd, ID_PLAY_BUTTON);
-                HWND hRulesBtn = GetDlgItem(hwnd, ID_RULES_BUTTON);
-                if (hPlayBtn || hRulesBtn && appState == STATE_MENU){
-                    x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
-                    y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
-                    MoveWindow(hPlayBtn, x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
-                    MoveWindow(hRulesBtn, x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
-                }
-                if (appState == STATE_GAME) {
-                    int cellSize = rcClient.bottom / 12;
-                    int gridHeight = cellSize * 6;
-                    int topY = cellSize + gridHeight + cellSize / 2;
-
-                    RepositionKeyboard(hwnd, topY);
-                }
+                RepositionUI(hwnd);
                 InvalidateRect(hwnd, NULL, TRUE);
             }
             break;
@@ -231,12 +192,32 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         SendMessage(hwnd, WM_CLOSE, 0, 0);
                         break;
                     case ID_PLAY_BUTTON:
-                        appState = STATE_GAME;
+                        {
+                            resetGame();
+                            HWND finishedButtons[] = { hPlayBtn, hRulesBtn };
+                            destroyButtons(finishedButtons, 2);
+                            InvalidateRect(hwnd, NULL, TRUE);
+                        }
+                        break;
+                    case ID_MAIN_MENU_BUTTON:
+                        {
+                            if (isKeyboardCreated){
+                                deleteKeyboard();
+                            }
+                            appState = STATE_MENU;
+                            HWND finishedButtons[] = { hReplayBtn, hBackBtn };
+                            destroyButtons(finishedButtons, 2);
+                            InvalidateRect(hwnd, NULL, TRUE);
+                        }
 
-                        ShowWindow(hPlayBtn, SW_HIDE);
-                        ShowWindow(hRulesBtn, SW_HIDE);
-
-                        InvalidateRect(hwnd, NULL, TRUE);
+                        break;
+                    case ID_REPLAY_BUTTON:
+                        {
+                            resetGame();
+                            HWND finishedButtons[] = { hReplayBtn, hBackBtn };
+                            destroyButtons(finishedButtons, 2);
+                            InvalidateRect(hwnd, NULL, TRUE);
+                        }
                         break;
                     case ID_RULES_BUTTON:
                         DialogBox(NULL, MAKEINTRESOURCE(IDD_RULES_DIALOG), hwnd, (DLGPROC)RulesDialogProcedure);
@@ -257,7 +238,6 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             }
                             else if (id == ID_ENTER_BUTTON)
                             {
-
                                 handleEnterButton(hwnd);
                             }
                             InvalidateRect(hwnd, NULL, TRUE);
@@ -308,6 +288,52 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     return 0;
 }
 
+
+void RepositionUI(HWND hwnd)
+{
+    RECT rcClient;
+    GetClientRect(hwnd, &rcClient);
+
+    int x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
+    int y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
+
+    switch (appState)
+    {
+        case STATE_MENU:
+        {
+            if (hPlayBtn && hRulesBtn)
+            {
+                MoveWindow(hPlayBtn,  x + (MAIN_BTN_WIDTH / 2), y,
+                           MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
+
+                MoveWindow(hRulesBtn, x - (MAIN_BTN_WIDTH / 2), y,
+                           MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
+            }
+        }
+        break;
+
+        case STATE_GAME:
+        {
+            RepositionKeyboard(hwnd);
+        }
+        break;
+
+        case STATE_GAME_FINISHED:
+        {
+            if (hReplayBtn && hBackBtn)
+            {
+                MoveWindow(hReplayBtn, x + (MAIN_BTN_WIDTH / 2), y,
+                           MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
+
+                MoveWindow(hBackBtn,  x - (MAIN_BTN_WIDTH / 2), y,
+                           MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
+            }
+        }
+        break;
+    }
+}
+
+
 void handleLetterButtons(int id){
     int index = id - 1000;
     char *label = keyboardButtons[index].label;
@@ -339,15 +365,19 @@ void handleEnterButton(HWND hwnd){
     for (int i = 0; i < 5; i++){
         cellColor[currentRow][i] = 1;
     }
-    char msg[64];
-    currentColumn = 0;
-    currentRow++;
+    if (currentRow < 5){
+        currentColumn = 0;
+        currentRow++;
+        return;
+    }
+    InvalidateRect(hwnd, NULL, TRUE);
+    MessageBoxA(hwnd, "The word was: something", "Wordle", MB_OK);
+    appState = STATE_GAME_FINISHED;
+    deleteKeyboard();
+
 }
 
 void drawGame(HWND hwnd, HDC hdc) {
-
-    static bool isKeyboardCreated = false;
-
     RECT rc;
     GetClientRect(hwnd, &rc);
 
@@ -364,7 +394,6 @@ void drawGame(HWND hwnd, HDC hdc) {
 
     if (!isKeyboardCreated){
         drawKeyboard(hwnd, startY + gridHeight + cellSize/2);
-        isKeyboardCreated = true;
     }
 }
 
@@ -408,6 +437,57 @@ void paintCells(HDC hdc, int startX, int startY, int cellSize) {
 
     SelectObject(hdc, oldPen);
     DeleteObject(hPen);
+}
+
+void drawGameFinished(HWND hwnd, HDC hdc){
+
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+
+    int cellSize = rc.bottom / 12;
+    int gridWidth = cellSize * 5;
+    int gridHeight = cellSize * 6;
+
+    int startX = (rc.right - gridWidth) / 2;
+    int startY = rc.top + cellSize;
+
+    paintCells(hdc,startX, startY, cellSize);
+
+    drawLetters(hdc, cellSize, startX, startY);
+
+    if (!finishedButtonsCreated) {
+        int x = (rc.right - MAIN_BTN_WIDTH) / 2;
+        int y = (rc.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
+        hReplayBtn = createButton(hwnd, "Play again", x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, ID_REPLAY_BUTTON);
+        hBackBtn = createButton(hwnd, "Back to Main Menu", x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, ID_MAIN_MENU_BUTTON);
+        finishedButtonsCreated = true;
+    }
+}
+
+void resetGame(){
+    memset(grid, 0, sizeof(grid));
+    memset(cellColor, 0, sizeof(cellColor));
+    currentRow = 0;
+    currentColumn = 0;
+
+    appState = STATE_GAME;
+
+    areMenuItemsCreated = false;
+    finishedButtonsCreated = false;
+}
+
+HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, int id){
+    HWND hButton = CreateWindow(
+        "BUTTON", // predefined class; Unicode assumed
+        text, // button text
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        x, y, width, height,
+        hwnd, // parent window
+        (HMENU)id,
+        NULL,
+        NULL
+    );
+    return hButton;
 }
 
 void drawLetters(HDC hdc, int cellSize, int startX, int startY){
@@ -454,9 +534,8 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY){
 void drawKeyboard(HWND hwnd, int topY) {
     RECT rc;
     GetClientRect(hwnd, &rc);
-    static bool created = false;
 
-    if (created) return;
+    if (isKeyboardCreated) return;
 
     const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
 
@@ -480,13 +559,7 @@ void drawKeyboard(HWND hwnd, int topY) {
 
         // enter button
         if (r == 2) {
-            keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd =
-                CreateWindow("BUTTON", "ENTER",
-                    WS_CHILD | WS_VISIBLE,
-                    x, y, keyWidth, keyHeight,
-                    hwnd, (HMENU)ID_ENTER_BUTTON,
-                    NULL, NULL);
-
+            keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd = createButton(hwnd, "ENTER", x, y, keyWidth, keyHeight, ID_ENTER_BUTTON);
             strcpy(keyboardButtons[ID_ENTER_BUTTON - 1000].label, "ENTER");
             x += keyWidth;
         }
@@ -494,46 +567,35 @@ void drawKeyboard(HWND hwnd, int topY) {
         // letter keys
         for (int i = 0; i < rowLen; i++) {
             char txt[2] = { rows[r][i], 0 };
-
-            keyboardButtons[keyboardBtnCount].hWnd =
-                CreateWindow("BUTTON", txt,
-                    WS_CHILD | WS_VISIBLE,
-                    x, y, keyWidth, keyHeight,
-                    hwnd, (HMENU)(1000 + keyboardBtnCount),
-                    NULL, NULL);
-
+            keyboardButtons[keyboardBtnCount].hWnd = createButton(hwnd, txt, x, y, keyWidth, keyHeight, 1000 + keyboardBtnCount);
             strcpy(keyboardButtons[keyboardBtnCount].label, txt);
             keyboardBtnCount++;
-
             x += keyWidth;
         }
 
         // backspace
         if (r == 2) {
-            keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd =
-                CreateWindow("BUTTON", "<-",
-                    WS_CHILD | WS_VISIBLE,
-                    x, y, keyWidth, keyHeight,
-                    hwnd, (HMENU)ID_BACKSPACE_BUTTON,
-                    NULL, NULL);
-
+            keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd = createButton(hwnd, "<-", x, y, keyWidth, keyHeight, ID_BACKSPACE_BUTTON);
             strcpy(keyboardButtons[ID_BACKSPACE_BUTTON - 1000].label, "<-");
         }
-        created = true;
+        isKeyboardCreated = true;
     }
 }
 
-
-void RepositionKeyboard(HWND hwnd, int topY) {
+void RepositionKeyboard(HWND hwnd) {
     RECT rc;
     GetClientRect(hwnd, &rc);
+
+    int cellSize = rc.bottom / 12;
+    int gridHeight = cellSize * 6;
+    int topY = cellSize + gridHeight + cellSize / 2;
 
     const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
 
     int keyWidth  = rc.right / 14;
     int keyHeight = keyWidth * 0.8;
 
-    int index = 0; // walks through letter buttons
+    int index = 0;
 
     for (int r = 0; r < 3; r++) {
 
@@ -557,7 +619,6 @@ void RepositionKeyboard(HWND hwnd, int topY) {
         // letter keys
         for (int i = 0; i < rowLen; i++) {
             MoveWindow(keyboardButtons[index].hWnd,x, y, keyWidth, keyHeight, TRUE);
-
             index++;
             x += keyWidth;
         }
@@ -569,6 +630,37 @@ void RepositionKeyboard(HWND hwnd, int topY) {
     }
 }
 
+void destroyButtons(HWND* buttons, int btnCount) {
+    for (int i = 0; i < btnCount; i++) {
+        if (buttons[i]) {
+            DestroyWindow(buttons[i]);
+            buttons[i] = NULL;
+        }
+    }
+}
+
+void deleteKeyboard() {
+    for (int i = 0; i < keyboardBtnCount; i++) {
+        if (keyboardButtons[i].hWnd) {
+            DestroyWindow(keyboardButtons[i].hWnd);
+            keyboardButtons[i].hWnd = NULL;
+        }
+    }
+
+    if (keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd) {
+        DestroyWindow(keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd);
+        keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd = NULL;
+    }
+    if (keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd) {
+        DestroyWindow(keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd);
+        keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd = NULL;
+    }
+
+    isKeyboardCreated = false;
+    keyboardBtnCount = 0;
+}
+
+
 HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
     return CreateFont(
         -height, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, FALSE, FALSE, FALSE,
@@ -577,13 +669,30 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName) {
     );
 }
 
-VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap){
+void drawMenu(HWND hwnd, HDC hdc){
     RECT rcClient;
     GetClientRect(hwnd, &rcClient);
 
+    if (!areMenuItemsCreated){
+        int x = (rcClient.right - MAIN_BTN_WIDTH) / 2;
+        int y = (rcClient.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
+
+        // loads wordle icon
+        hWordleBitmap = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_WORDLE_ICON));
+          if(!hWordleBitmap){
+            MessageBox(hwnd,"Failed to load Wordle Bitmap!", "Error", MB_ICONERROR);
+          }
+
+        // creates buttons
+        hPlayBtn = createButton(hwnd, "Play", x + (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, ID_PLAY_BUTTON);
+        hRulesBtn = createButton(hwnd, "Rules", x - (MAIN_BTN_WIDTH / 2), y, MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, ID_RULES_BUTTON);
+
+        areMenuItemsCreated = true;
+    }
+
     // draws wordle icon
     if (hWordleBitmap){
-        paintBitmap(hwnd, hWordleBitmap, 0.5f, 0.19f);
+        paintBitmap(hwnd, hdc, hWordleBitmap, 0.5f, 0.19f);
     }
     // draws Wordle title
     DrawTextAnywhere(
@@ -608,10 +717,7 @@ VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap){
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
-    HDC hdc;
-    hdc = GetDC(hwnd);
-
+void paintBitmap(HWND hwnd, HDC hdc, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0.0f){
     RECT rcClient;
     GetClientRect(hwnd, &rcClient);
 
@@ -631,12 +737,11 @@ VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp = 0.0f, float yProp = 0
 
     SelectObject(hdcMem, hOld);
     DeleteDC(hdcMem);
-    ReleaseDC(hwnd, hdc);
 }
 
 // xProp - horizontal proportion
 // yProp - vertical proportion
-VOID DrawTextAnywhere(
+void DrawTextAnywhere(
       HWND hwnd,
       LPCTSTR text,
       int fontSize,
@@ -801,7 +906,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 if (hExample1) {
-                    paintBitmap(hDlg, hExample1, 0.195f, 0.405f);
+                    paintBitmap(hDlg, hdc, hExample1, 0.195f, 0.405f);
                 }
 
                 DrawTextAnywhere(
@@ -814,7 +919,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 if (hExample2) {
-                    paintBitmap(hDlg, hExample2, 0.195f, 0.51f);
+                    paintBitmap(hDlg, hdc, hExample2, 0.195f, 0.51f);
                 }
 
                 DrawTextAnywhere(
@@ -827,7 +932,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 );
 
                 if (hExample3) {
-                    paintBitmap(hDlg, hExample3, 0.195f, 0.61f);
+                    paintBitmap(hDlg, hdc, hExample3, 0.195f, 0.61f);
                 }
 
                 DrawTextAnywhere(
@@ -855,12 +960,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
             }
             return TRUE;
         case WM_CLOSE:
-            /*EndDialog(hDlg, 0);
-            if (hExample1) DeleteObject(hExample1);
-            if (hExample2) DeleteObject(hExample2);
-            if (hExample3) DeleteObject(hExample3);
-            if (hDialogBrush) DeleteObject(hDialogBrush);
-            */return TRUE;
+            return TRUE;
         case WM_DESTROY:
             EndDialog(hDlg, 0);
             if (hExample1) DeleteObject(hExample1);
