@@ -20,13 +20,14 @@ HFONT CreateCustomFont(int height, bool bold, LPCTSTR fontName);
 BOOL CALLBACK RulesDialogProcedure(HWND, UINT, WPARAM, LPARAM);
 VOID paintBitmap(HWND hwnd, HBITMAP hBitmap, float xProp, float yProp);
 VOID drawMenu(HWND hwnd, HBITMAP hWordleBitmap);
-void drawGame(HWND hwnd);
+void drawGame(HWND hwnd, HDC hdc);
 void drawKeyboard(HWND hwnd, int topY);
 void RepositionKeyboard(HWND hwnd, int topY);
 void drawLetters(HDC hdc, int cellSize, int startX, int startY);
 void handleEnterButton(HWND hwnd);
 void handleLetterButtons(int id);
 void handleBackspaceButton();
+void paintCells(HDC hdc, int startX, int startY, int cellSize);
 VOID DrawTextAnywhere(
   HWND hwnd,
   LPCTSTR text,
@@ -57,6 +58,7 @@ KeyBtn keyboardButtons[30];
 int keyboardBtnCount = 0;
 
 char grid [6][6] = {0};
+int cellColor[6][5] = {0};
 int currentRow = 0;
 int currentColumn = 0;
 APP_STATE appState = STATE_MENU;
@@ -183,7 +185,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             if (appState == STATE_MENU) {
                 drawMenu(hwnd, hWordleBitmap);
             } else if (appState == STATE_GAME) {
-                drawGame(hwnd);
+                drawGame(hwnd, hdc);
             }
 
 
@@ -260,8 +262,6 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             }
                             InvalidateRect(hwnd, NULL, TRUE);
                             SetFocus(hwnd);
-                            printf("word : %s\n", grid[currentRow]);
-
                         }
                         break;
                 }
@@ -333,19 +333,20 @@ void handleBackspaceButton(){
 void handleEnterButton(HWND hwnd){
     if (currentColumn < 5){
         MessageBoxA(hwnd, "Not enough letters!", "Wordle", MB_OK);
+        return;
     }
-    else {
-        char msg[64];
-        sprintf(msg, "Submitted word: %s", grid[currentRow]);
-        MessageBoxA(hwnd, msg, "Wordle", MB_OK);
-        currentColumn = 0;
-        currentRow++;
+    // TODO: insert logic for coloring letters
+    for (int i = 0; i < 5; i++){
+        cellColor[currentRow][i] = 1;
     }
+    char msg[64];
+    currentColumn = 0;
+    currentRow++;
 }
 
-void drawGame(HWND hwnd) {
+void drawGame(HWND hwnd, HDC hdc) {
 
-    HDC hdc = GetDC(hwnd);
+    static bool isKeyboardCreated = false;
 
     RECT rc;
     GetClientRect(hwnd, &rc);
@@ -357,39 +358,59 @@ void drawGame(HWND hwnd) {
     int startX = (rc.right - gridWidth) / 2;
     int startY = rc.top + cellSize;
 
-    HBRUSH hBrush = CreateSolidBrush(COLOR_BG_DEFAULT);
-    HPEN hPen = CreatePen(PS_SOLID, 3, COLOR_GRAY);
-
-    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-    HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
-
-    // Draw 6 rows × 5 columns
-    for (int r = 0; r < 6; r++) {
-        for (int c = 0; c < 5; c++) {
-            Rectangle(
-                hdc,
-                startX + c * cellSize,
-                startY + r * cellSize,
-                startX + (c + 1) * cellSize,
-                startY + (r + 1) * cellSize
-            );
-        }
-    }
-
-    SelectObject(hdc, oldBrush);
-    SelectObject(hdc, oldPen);
-    DeleteObject(hBrush);
-    DeleteObject(hPen);
+    paintCells(hdc,startX, startY, cellSize);
 
     drawLetters(hdc, cellSize, startX, startY);
 
-    ReleaseDC(hwnd, hdc);
-
-    drawKeyboard(hwnd, startY + gridHeight + cellSize/2);
-
+    if (!isKeyboardCreated){
+        drawKeyboard(hwnd, startY + gridHeight + cellSize/2);
+        isKeyboardCreated = true;
+    }
 }
+
+void paintCells(HDC hdc, int startX, int startY, int cellSize) {
+
+    HPEN hPen = CreatePen(PS_SOLID, 5, COLOR_BLACK);
+
+    HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
+
+    for (int r = 0; r < 6; r++) {
+        for (int c = 0; c < 5; c++) {
+            COLORREF fillColor = COLOR_BG_DEFAULT;
+            switch (cellColor[r][c]) {
+                case 1:
+                    fillColor = COLOR_GREEN;
+                    break;
+                case 2:
+                    fillColor = COLOR_YELLOW;
+                    break;
+                case 3:
+                    fillColor = COLOR_GRAY;
+                    break;
+                default:
+                    fillColor = COLOR_BG_DEFAULT;
+                    break;
+            }
+
+            RECT rc;
+            rc.left   = startX + c * cellSize;
+            rc.top    = startY + r * cellSize;
+            rc.right  = startX + (c + 1) * cellSize;
+            rc.bottom = startY + (r + 1) * cellSize;
+
+            Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+
+            HBRUSH hFill = CreateSolidBrush(fillColor);
+            FillRect(hdc, &rc, hFill);
+            DeleteObject(hFill);
+        }
+    }
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(hPen);
+}
+
 void drawLetters(HDC hdc, int cellSize, int startX, int startY){
-    // draws letters on grid
     HFONT hFont = CreateFontA(
         cellSize * 0.6, 0, 0, 0,
         FW_BOLD, FALSE, FALSE, FALSE,

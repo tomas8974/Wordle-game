@@ -2,9 +2,9 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Debug" />
-	<File name="ui_constants.h" open="0" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="3" zoom_2="0">
+	<File name="colors.h" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="4" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="98" topLine="0" />
+			<Cursor1 position="393" topLine="0" />
 		</Cursor>
 	</File>
 	<File name="bitmaps.h" open="0" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
@@ -12,30 +12,9 @@
 			<Cursor1 position="83" topLine="0" />
 		</Cursor>
 	</File>
-	<File name="bitmaps.rc" open="0" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="buttons.h" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="4" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="178" topLine="0" />
-		</Cursor>
-	</File>
-	<File name="main.cpp" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="3" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="7492" topLine="177" />
-		</Cursor>
-		<Folding>
-			<Collapse line="270" />
-			<Collapse line="345" />
-			<Collapse line="390" />
-			<Collapse line="550" />
-			<Collapse line="558" />
-			<Collapse line="589" />
-			<Collapse line="617" />
-			<Collapse line="629" />
-			<Collapse line="691" />
-		</Folding>
-	</File>
-	<File name="colors.h" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="4" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="234" topLine="0" />
+			<Cursor1 position="61" topLine="0" />
 		</Cursor>
 	</File>
 	<File name="RulesDialog.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="2" zoom_2="0">
@@ -48,10 +27,35 @@
 			<Cursor1 position="216" topLine="0" />
 		</Cursor>
 	</File>
-	<File name="buttons.h" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="4" zoom_2="0">
+	<File name="ui_constants.h" open="0" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="3" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="61" topLine="0" />
+			<Cursor1 position="98" topLine="0" />
 		</Cursor>
+	</File>
+	<File name="bitmaps.rc" open="0" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="178" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="main.cpp" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="4" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="13733" topLine="343" />
+		</Cursor>
+		<Folding>
+			<Collapse line="270" />
+			<Collapse line="310" />
+			<Collapse line="324" />
+			<Collapse line="346" />
+			<Collapse line="412" />
+			<Collapse line="413" />
+			<Collapse line="453" />
+			<Collapse line="526" />
+			<Collapse line="579" />
+			<Collapse line="610" />
+			<Collapse line="638" />
+			<Collapse line="650" />
+			<Collapse line="712" />
+		</Folding>
 	</File>
 	<File name="menu.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
