@@ -77,6 +77,7 @@ HBITMAP hWordleBitmap = NULL;
 bool areMenuItemsCreated = false;
 bool isKeyboardCreated = false;
 bool finishedButtonsCreated = false;
+char selectedWord[] = "APPLE";
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -365,13 +366,18 @@ void handleEnterButton(HWND hwnd){
     for (int i = 0; i < 5; i++){
         cellColor[currentRow][i] = 1;
     }
-    if (currentRow < 5){
+    if (strcmp(grid[currentRow], selectedWord) == 0 && currentRow < 5){
+        MessageBoxA(hwnd, "You won!", "Wordle", MB_OK);
+    }
+    else if (currentRow < 5){
         currentColumn = 0;
         currentRow++;
         return;
     }
     InvalidateRect(hwnd, NULL, TRUE);
-    MessageBoxA(hwnd, "The word was: something", "Wordle", MB_OK);
+    if (currentRow == 5){
+        MessageBoxA(hwnd, "The word was: APPLE", "Wordle", MB_OK);
+    }
     appState = STATE_GAME_FINISHED;
     deleteKeyboard();
 
