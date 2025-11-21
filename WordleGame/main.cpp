@@ -13,6 +13,7 @@
 #include "ui_constants.h"
 #include "colors.h"
 #include <stdio.h>
+#include "WordleGameLogic.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -77,7 +78,8 @@ HBITMAP hWordleBitmap = NULL;
 bool areMenuItemsCreated = false;
 bool isKeyboardCreated = false;
 bool finishedButtonsCreated = false;
-char selectedWord[] = "APPLE";
+char* selectedWord;
+LetterResult result[WORD_LENGTH];
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -151,6 +153,11 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 {
     switch (message)                  /* handle the messages */
     {
+        case WM_CREATE:
+        {
+            LoadWords();
+        }
+        break;
         case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -334,7 +341,6 @@ void RepositionUI(HWND hwnd)
     }
 }
 
-
 void handleLetterButtons(int id){
     int index = id - 1000;
     char *label = keyboardButtons[index].label;
@@ -362,12 +368,19 @@ void handleEnterButton(HWND hwnd){
         MessageBoxA(hwnd, "Not enough letters!", "Wordle", MB_OK);
         return;
     }
-    // TODO: insert logic for coloring letters
+    if (!IsInWordList(grid[currentRow])){
+        MessageBoxA(hwnd, "Word is not in the word list!", "Wordle", MB_OK);
+        return;
+    }
+    CheckEnteredWord(grid[currentRow], selectedWord, result);
     for (int i = 0; i < 5; i++){
-        cellColor[currentRow][i] = 1;
+
+        cellColor[currentRow][i] = result[i].color;
     }
     if (strcmp(grid[currentRow], selectedWord) == 0 && currentRow < 5){
-        MessageBoxA(hwnd, "You won!", "Wordle", MB_OK);
+        char msg[128];
+        sprintf(msg, "You won! The word was: %s", selectedWord);
+        MessageBoxA(hwnd, msg , "Wordle", MB_OK);
     }
     else if (currentRow < 5){
         currentColumn = 0;
@@ -376,8 +389,11 @@ void handleEnterButton(HWND hwnd){
     }
     InvalidateRect(hwnd, NULL, TRUE);
     if (currentRow == 5){
-        MessageBoxA(hwnd, "The word was: APPLE", "Wordle", MB_OK);
+        char msg[128];
+        sprintf(msg, "The word was: %s", selectedWord);
+        MessageBoxA(hwnd, msg, "Wordle", MB_OK);
     }
+    free(selectedWord);
     appState = STATE_GAME_FINISHED;
     deleteKeyboard();
 
@@ -414,13 +430,13 @@ void paintCells(HDC hdc, int startX, int startY, int cellSize) {
             COLORREF fillColor = COLOR_BG_DEFAULT;
             switch (cellColor[r][c]) {
                 case 1:
-                    fillColor = COLOR_GREEN;
+                    fillColor = COLOR_GRAY;
                     break;
                 case 2:
                     fillColor = COLOR_YELLOW;
                     break;
                 case 3:
-                    fillColor = COLOR_GRAY;
+                    fillColor = COLOR_GREEN;
                     break;
                 default:
                     fillColor = COLOR_BG_DEFAULT;
@@ -480,6 +496,7 @@ void resetGame(){
 
     areMenuItemsCreated = false;
     finishedButtonsCreated = false;
+    selectedWord = PickRandomWord();
 }
 
 HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, int id){

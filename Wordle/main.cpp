@@ -124,12 +124,6 @@ map<char, int> InitiateKeyboard(){
     return keyboardCharacters;
 }
 
-map<char, int>& UpdateKeyboard(char character, int color, map<char, int>& keyboard){
-    if(keyboard[character] != color){
-        keyboard[character] = color;
-    }
-    return keyboard;
-}
 
 bool HasWonGame(string inputWord, string pickedWord){
     if (inputWord.compare(pickedWord) == 0){ // winning condition, words match
@@ -176,6 +170,15 @@ vector<tuple<char, int>> CheckEnteredWord(string inputWord, string pickedWord, m
         }
     }
     return result;
+}
+
+
+
+map<char, int>& UpdateKeyboard(char character, int color, map<char, int>& keyboard){
+    if(keyboard[character] != color){
+        keyboard[character] = color;
+    }
+    return keyboard;
 }
 
 void printResult(vector<tuple<char, int>> result){

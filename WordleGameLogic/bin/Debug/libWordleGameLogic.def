@@ -1,0 +1,6 @@
+EXPORTS
+    CheckEnteredWord @1
+    DllMain @2
+    IsInWordList @3
+    LoadWords @4
+    PickRandomWord @5
