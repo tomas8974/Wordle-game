@@ -65,8 +65,8 @@ struct KeyBtn {
 KeyBtn keyboardButtons[30];
 int keyboardBtnCount = 0;
 
-char grid [6][6] = {0};
-int cellColor[6][5] = {0};
+char grid [6][WORD_LENGTH + 1] = {0}; // grid[currentRow] is the word that user entered
+int cellColor[6][WORD_LENGTH] = {0};
 int currentRow = 0;
 int currentColumn = 0;
 APP_STATE appState = STATE_MENU;
@@ -346,7 +346,7 @@ void handleLetterButtons(int id){
     char *label = keyboardButtons[index].label;
     char ch = label[0];
 
-    if (currentColumn < 5){
+    if (currentColumn < WORD_LENGTH){
         grid[currentRow][currentColumn] = ch;
 
         currentColumn++;
@@ -364,7 +364,7 @@ void handleBackspaceButton(){
 }
 
 void handleEnterButton(HWND hwnd){
-    if (currentColumn < 5){
+    if (currentColumn < WORD_LENGTH){
         MessageBoxA(hwnd, "Not enough letters!", "Wordle", MB_OK);
         return;
     }
@@ -373,7 +373,7 @@ void handleEnterButton(HWND hwnd){
         return;
     }
     CheckEnteredWord(grid[currentRow], selectedWord, result);
-    for (int i = 0; i < 5; i++){
+    for (int i = 0; i < WORD_LENGTH; i++){
 
         cellColor[currentRow][i] = result[i].color;
     }
@@ -404,7 +404,7 @@ void drawGame(HWND hwnd, HDC hdc) {
     GetClientRect(hwnd, &rc);
 
     int cellSize = rc.bottom / 12;
-    int gridWidth = cellSize * 5;
+    int gridWidth = cellSize * WORD_LENGTH;
     int gridHeight = cellSize * 6;
 
     int startX = (rc.right - gridWidth) / 2;
@@ -426,7 +426,7 @@ void paintCells(HDC hdc, int startX, int startY, int cellSize) {
     HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
 
     for (int r = 0; r < 6; r++) {
-        for (int c = 0; c < 5; c++) {
+        for (int c = 0; c < WORD_LENGTH; c++) {
             COLORREF fillColor = COLOR_BG_DEFAULT;
             switch (cellColor[r][c]) {
                 case 1:
@@ -467,7 +467,7 @@ void drawGameFinished(HWND hwnd, HDC hdc){
     GetClientRect(hwnd, &rc);
 
     int cellSize = rc.bottom / 12;
-    int gridWidth = cellSize * 5;
+    int gridWidth = cellSize * WORD_LENGTH;
     int gridHeight = cellSize * 6;
 
     int startX = (rc.right - gridWidth) / 2;
@@ -528,7 +528,7 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY){
     SetTextColor(hdc, COLOR_BLACK);
 
     for (int r = 0; r < 6; r++) {
-        for (int c = 0; c < 5; c++) {
+        for (int c = 0; c < WORD_LENGTH; c++) {
 
             char letter = grid[r][c];
             if (letter == 0) continue;
