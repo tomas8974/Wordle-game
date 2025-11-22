@@ -59,6 +59,29 @@ char* PickRandomWord() {
     return buffer;
 }
 
+Keyboard initializeKeyboard(){
+    static const char layout[KEYBOARD_SIZE + 1] = "QWERTYUIOPASDFGHJKLZXCVBNM";
+
+    Keyboard kb;
+
+    for (int i = 0; i < KEYBOARD_SIZE; i++) {
+        kb.key[i] = layout[i];
+        kb.color[i] = _COLOR_BG;
+    }
+
+    return kb;
+}
+
+void updateKeyboard(Keyboard* kb, char character, int color){
+    if (!kb) return;
+
+    for (int i = 0; i < KEYBOARD_SIZE; i++) {
+        if (kb->key[i] == character) {
+            kb->color[i] = color;
+            return;
+        }
+    }
+}
 
 static inline int letterIndex(char c) {
     return c - 'A';
@@ -69,21 +92,21 @@ PickedWordSymbols CountSameCharactersInWord(const char* word) {
 
     for (int i = 0; i < WORD_LENGTH; i++) {
         char c = word[i];
-        int idx = letterIndex(c);
-        if (idx >= 0 && idx < 26) {
-            freq.letterCount[idx]++;
+        int index = letterIndex(c);
+        if (index >= 0 && index < KEYBOARD_SIZE) {
+            freq.letterCount[index]++;
         }
     }
     return freq;
 }
 
-void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResult* result)
+void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResult* result, Keyboard* kb)
 {
     // iniating, setting all to gray
     for(int i = 0; i < WORD_LENGTH; i++){
         result[i].character = inputWord[i];
         result[i].color = _COLOR_GRAY;
-        // update keyboard
+        updateKeyboard(kb, inputWord[i], _COLOR_GRAY);
     }
 
     // winning condition
@@ -92,7 +115,7 @@ void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResul
         for (int i = 0; i < WORD_LENGTH; i++){
             result[i].character = inputWord[i];
             result[i].color = _COLOR_GREEN;
-            // update keyboard
+            updateKeyboard(kb, inputWord[i], _COLOR_GREEN);
         }
     }
     else{
@@ -102,7 +125,7 @@ void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResul
             if (inputWord[i] == pickedWord[i]){
                 result[i].character = inputWord[i];
                 result[i].color = _COLOR_GREEN;
-                // update keyboard
+                updateKeyboard(kb, inputWord[i], _COLOR_GREEN);
                 pickedWordSymbols.letterCount[letterIndex(inputWord[i])]--;
             }
         }
@@ -112,6 +135,7 @@ void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResul
             int color = result[i].color;
             if (color == _COLOR_GRAY && pickedWordSymbols.letterCount[letterIndex(letter)] > 0){
                 result[i].color = _COLOR_YELLOW;
+                updateKeyboard(kb, inputWord[i], _COLOR_YELLOW);
                 pickedWordSymbols.letterCount[letterIndex(letter)]--;
             }
         }

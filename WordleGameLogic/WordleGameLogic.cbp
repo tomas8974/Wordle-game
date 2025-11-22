@@ -19,8 +19,7 @@
 					<Add option="-DBUILD_DLL" />
 				</Compiler>
 				<Linker>
-					<Add library="user32" />
-					<Add library="bin/Debug/WordleGameLogic.dll" />
+					<Add library="bin/Debug/libWordleGameLogic.a" />
 				</Linker>
 			</Target>
 			<Target title="Release">

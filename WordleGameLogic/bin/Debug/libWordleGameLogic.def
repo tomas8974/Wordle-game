@@ -4,3 +4,5 @@ EXPORTS
     IsInWordList @3
     LoadWords @4
     PickRandomWord @5
+    initializeKeyboard @6
+    updateKeyboard @7

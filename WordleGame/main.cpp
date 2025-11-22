@@ -28,11 +28,12 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY);
 void handleEnterButton(HWND hwnd);
 void handleLetterButtons(int id);
 void handleBackspaceButton();
-void deleteKeyboard();
+void deleteKeyboard(HWND hwnd);
 void drawGameFinished(HWND hwnd, HDC hdc);
 void paintCells(HDC hdc, int startX, int startY, int cellSize);
 void destroyButtons(HWND* buttons, int btnCount);
 HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, int id);
+HWND createKeyboardButton(HWND hwnd, char* text, int x, int y, int width, int height, int id);
 void resetGame();
 void RepositionUI(HWND hwnd);
 void DrawTextAnywhere(
@@ -59,10 +60,11 @@ enum APP_STATE{
 struct KeyBtn {
     HWND hWnd;
     char label[8];
+    int color;
     int x, y, w, h;
 };
 
-KeyBtn keyboardButtons[30];
+KeyBtn keyboardButtons[KEYBOARD_SIZE + 1];
 int keyboardBtnCount = 0;
 
 char grid [6][WORD_LENGTH + 1] = {0}; // grid[currentRow] is the word that user entered
@@ -80,6 +82,7 @@ bool isKeyboardCreated = false;
 bool finishedButtonsCreated = false;
 char* selectedWord;
 LetterResult result[WORD_LENGTH];
+Keyboard keyboard;
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -210,7 +213,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     case ID_MAIN_MENU_BUTTON:
                         {
                             if (isKeyboardCreated){
-                                deleteKeyboard();
+                                deleteKeyboard(hwnd);
                             }
                             appState = STATE_MENU;
                             HWND finishedButtons[] = { hReplayBtn, hBackBtn };
@@ -256,34 +259,111 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             }
             break;
             case WM_KEYDOWN:
+            {
+                int vk = (int)wParam;
+                if (appState == STATE_GAME)
                 {
-                    int vk = (int)wParam;
-                    if (appState == STATE_GAME)
+                    if (vk >= 'A' && vk <= 'Z')
                     {
-                        if (vk >= 'A' && vk <= 'Z')
+                        char letter = (char)vk;
+                        for (int i = 0; i < keyboardBtnCount; i++)
                         {
-                            char letter = (char)vk;
-                            for (int i = 0; i < keyboardBtnCount; i++)
+                            if (_stricmp(keyboardButtons[i].label, &letter) == 0)
                             {
-                                if (_stricmp(keyboardButtons[i].label, &letter) == 0)
-                                {
-                                    SendMessage(hwnd, WM_COMMAND, (1000 + i), 0);
-                                    break;
-                                }
+                                SendMessage(hwnd, WM_COMMAND, (1000 + i), 0);
+                                break;
                             }
                         }
-                        if (vk == VK_RETURN)
-                        {
-                            SendMessage(hwnd, WM_COMMAND, ID_ENTER_BUTTON, 0);
-                        }
+                    }
+                    if (vk == VK_RETURN)
+                    {
+                        SendMessage(hwnd, WM_COMMAND, ID_ENTER_BUTTON, 0);
+                    }
 
-                        if (vk == VK_BACK)
-                        {
-                            SendMessage(hwnd, WM_COMMAND, ID_BACKSPACE_BUTTON, 0);
-                        }
+                    if (vk == VK_BACK)
+                    {
+                        SendMessage(hwnd, WM_COMMAND, ID_BACKSPACE_BUTTON, 0);
                     }
                 }
+            }
             break;
+            case WM_DRAWITEM:
+            {
+                DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)lParam;
+                int id = dis->CtlID;
+
+                COLORREF btnFill = COLOR_WHITISH;
+                const char* text = "";
+
+                if (id == ID_ENTER_BUTTON) {
+                    text = "ENTER";
+                }
+                else if (id == ID_BACKSPACE_BUTTON) {
+                    text = "<-";
+                }
+                else {
+                    int index = id - 1000;
+                    if (index < 0 || index >= keyboardBtnCount) break;
+
+                    char key = keyboardButtons[index].label[0];
+                    int colorCode = _COLOR_BG;
+                    for (int i = 0; i < KEYBOARD_SIZE; i++){
+                        if (keyboard.key[i] == key){
+                            colorCode = keyboard.color[i];
+                            break;
+                        }
+                    }
+                    switch (colorCode) {
+                        case _COLOR_GRAY:
+                            btnFill = COLOR_GRAY;
+                            break;
+                        case _COLOR_YELLOW:
+                            btnFill = COLOR_YELLOW;
+                            break;
+                        case _COLOR_GREEN:
+                            btnFill = COLOR_GREEN;
+                            break;
+                        default:
+                            btnFill = COLOR_WHITISH;
+                            break;
+                    }
+                    text = keyboardButtons[index].label;
+                }
+
+
+                // fill buton background
+                HBRUSH brush = CreateSolidBrush(btnFill);
+                FillRect(dis->hDC, &dis->rcItem, brush);
+                DeleteObject(brush);
+
+                // draw border
+                HPEN hPen = CreatePen(PS_SOLID, 2, COLOR_BLACK);
+                HPEN oldPen = (HPEN)SelectObject(dis->hDC, hPen);
+                HBRUSH oldBrush = (HBRUSH)SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
+                Rectangle(dis->hDC, dis->rcItem.left, dis->rcItem.top, dis->rcItem.right, dis->rcItem.bottom);
+                SelectObject(dis->hDC, oldPen);
+                SelectObject(dis->hDC, oldBrush);
+                DeleteObject(hPen);
+
+                // draw text
+                SetBkMode(dis->hDC, TRANSPARENT);
+                HFONT hFont = CreateFontA(
+                    (dis->rcItem.bottom - dis->rcItem.top) * 0.4,
+                    0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                    ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                    DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+                    "Arial"
+                );
+                HFONT oldFont = (HFONT)SelectObject(dis->hDC, hFont);
+
+                DrawTextA(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+                SelectObject(dis->hDC, oldFont);
+                DeleteObject(hFont);
+
+            }
+            break;
+
 
         case WM_DESTROY:
             if (hWordleBitmap) DeleteObject(hWordleBitmap);
@@ -311,7 +391,7 @@ void RepositionUI(HWND hwnd)
         {
             if (hPlayBtn && hRulesBtn)
             {
-                MoveWindow(hPlayBtn,  x + (MAIN_BTN_WIDTH / 2), y,
+                MoveWindow(hPlayBtn, x + (MAIN_BTN_WIDTH / 2), y,
                            MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
 
                 MoveWindow(hRulesBtn, x - (MAIN_BTN_WIDTH / 2), y,
@@ -333,7 +413,7 @@ void RepositionUI(HWND hwnd)
                 MoveWindow(hReplayBtn, x + (MAIN_BTN_WIDTH / 2), y,
                            MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
 
-                MoveWindow(hBackBtn,  x - (MAIN_BTN_WIDTH / 2), y,
+                MoveWindow(hBackBtn, x - (MAIN_BTN_WIDTH / 2), y,
                            MAIN_BTN_WIDTH, MAIN_BTN_HEIGHT, TRUE);
             }
         }
@@ -372,13 +452,14 @@ void handleEnterButton(HWND hwnd){
         MessageBoxA(hwnd, "Word is not in the word list!", "Wordle", MB_OK);
         return;
     }
-    CheckEnteredWord(grid[currentRow], selectedWord, result);
+    CheckEnteredWord(grid[currentRow], selectedWord, result, &keyboard);
     for (int i = 0; i < WORD_LENGTH; i++){
 
         cellColor[currentRow][i] = result[i].color;
     }
     if (strcmp(grid[currentRow], selectedWord) == 0 && currentRow < 5){
         char msg[128];
+        InvalidateRect(hwnd, NULL, TRUE);
         sprintf(msg, "You won! The word was: %s", selectedWord);
         MessageBoxA(hwnd, msg , "Wordle", MB_OK);
     }
@@ -395,7 +476,7 @@ void handleEnterButton(HWND hwnd){
     }
     free(selectedWord);
     appState = STATE_GAME_FINISHED;
-    deleteKeyboard();
+    deleteKeyboard(hwnd);
 
 }
 
@@ -411,7 +492,6 @@ void drawGame(HWND hwnd, HDC hdc) {
     int startY = rc.top + cellSize;
 
     paintCells(hdc,startX, startY, cellSize);
-
     drawLetters(hdc, cellSize, startX, startY);
 
     if (!isKeyboardCreated){
@@ -429,13 +509,13 @@ void paintCells(HDC hdc, int startX, int startY, int cellSize) {
         for (int c = 0; c < WORD_LENGTH; c++) {
             COLORREF fillColor = COLOR_BG_DEFAULT;
             switch (cellColor[r][c]) {
-                case 1:
+                case _COLOR_GRAY:
                     fillColor = COLOR_GRAY;
                     break;
-                case 2:
+                case _COLOR_YELLOW:
                     fillColor = COLOR_YELLOW;
                     break;
-                case 3:
+                case _COLOR_GREEN:
                     fillColor = COLOR_GREEN;
                     break;
                 default:
@@ -496,6 +576,7 @@ void resetGame(){
 
     areMenuItemsCreated = false;
     finishedButtonsCreated = false;
+    keyboard = initializeKeyboard();
     selectedWord = PickRandomWord();
 }
 
@@ -513,6 +594,19 @@ HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, in
     return hButton;
 }
 
+HWND createKeyboardButton(HWND hwnd, char* text, int x, int y, int width, int height, int id){
+    HWND hButton = CreateWindow(
+        "BUTTON", // predefined class; Unicode assumed
+        text, // button text
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        x, y, width, height,
+        hwnd, // parent window
+        (HMENU)id,
+        NULL,
+        NULL
+    );
+    return hButton;
+}
 void drawLetters(HDC hdc, int cellSize, int startX, int startY){
     HFONT hFont = CreateFontA(
         cellSize * 0.6, 0, 0, 0,
@@ -582,15 +676,14 @@ void drawKeyboard(HWND hwnd, int topY) {
 
         // enter button
         if (r == 2) {
-            keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd = createButton(hwnd, "ENTER", x, y, keyWidth, keyHeight, ID_ENTER_BUTTON);
-            strcpy(keyboardButtons[ID_ENTER_BUTTON - 1000].label, "ENTER");
+            createKeyboardButton(hwnd, "ENTER", x, y, keyWidth, keyHeight, ID_ENTER_BUTTON);
             x += keyWidth;
         }
 
         // letter keys
         for (int i = 0; i < rowLen; i++) {
             char txt[2] = { rows[r][i], 0 };
-            keyboardButtons[keyboardBtnCount].hWnd = createButton(hwnd, txt, x, y, keyWidth, keyHeight, 1000 + keyboardBtnCount);
+            keyboardButtons[keyboardBtnCount].hWnd = createKeyboardButton(hwnd, txt, x, y, keyWidth, keyHeight, 1000 + keyboardBtnCount);
             strcpy(keyboardButtons[keyboardBtnCount].label, txt);
             keyboardBtnCount++;
             x += keyWidth;
@@ -598,11 +691,10 @@ void drawKeyboard(HWND hwnd, int topY) {
 
         // backspace
         if (r == 2) {
-            keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd = createButton(hwnd, "<-", x, y, keyWidth, keyHeight, ID_BACKSPACE_BUTTON);
-            strcpy(keyboardButtons[ID_BACKSPACE_BUTTON - 1000].label, "<-");
+            createKeyboardButton(hwnd, "<-", x, y, keyWidth, keyHeight, ID_BACKSPACE_BUTTON);
         }
-        isKeyboardCreated = true;
     }
+    isKeyboardCreated = true;
 }
 
 void RepositionKeyboard(HWND hwnd) {
@@ -662,7 +754,7 @@ void destroyButtons(HWND* buttons, int btnCount) {
     }
 }
 
-void deleteKeyboard() {
+void deleteKeyboard(HWND hwnd) {
     for (int i = 0; i < keyboardBtnCount; i++) {
         if (keyboardButtons[i].hWnd) {
             DestroyWindow(keyboardButtons[i].hWnd);
@@ -670,13 +762,13 @@ void deleteKeyboard() {
         }
     }
 
-    if (keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd) {
-        DestroyWindow(keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd);
-        keyboardButtons[ID_ENTER_BUTTON - 1000].hWnd = NULL;
+    HWND hEnterBtn = GetDlgItem(hwnd, ID_ENTER_BUTTON);
+    HWND hBackSpaceBtn = GetDlgItem(hwnd, ID_BACKSPACE_BUTTON);
+    if (hEnterBtn) {
+        DestroyWindow(hEnterBtn);
     }
-    if (keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd) {
-        DestroyWindow(keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd);
-        keyboardButtons[ID_BACKSPACE_BUTTON - 1000].hWnd = NULL;
+    if (hBackSpaceBtn) {
+        DestroyWindow(hBackSpaceBtn);
     }
 
     isKeyboardCreated = false;

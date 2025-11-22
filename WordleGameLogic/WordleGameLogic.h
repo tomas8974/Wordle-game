@@ -23,11 +23,18 @@ extern "C"
 {
 #endif
 
-#define MAX_WORDS 14000
+#define MAX_WORDS 20000
 #define WORD_LENGTH 5
 #define _COLOR_GRAY   1
 #define _COLOR_YELLOW 2
 #define _COLOR_GREEN  3
+#define _COLOR_BG  4
+#define KEYBOARD_SIZE 26
+
+typedef struct {
+    char key[KEYBOARD_SIZE];
+    int  color[KEYBOARD_SIZE];
+} Keyboard;
 
 typedef struct {
     char character;
@@ -35,14 +42,15 @@ typedef struct {
 } LetterResult;
 
 typedef struct {
-    int letterCount[26];
+    int letterCount[KEYBOARD_SIZE];
 } PickedWordSymbols;
-
 
 DLL_EXPORT void LoadWords();
 DLL_EXPORT bool IsInWordList(const char* word);
 DLL_EXPORT char* PickRandomWord();
-DLL_EXPORT void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResult* result);
+DLL_EXPORT void updateKeyboard(Keyboard* kb, char character, int color);
+DLL_EXPORT Keyboard initializeKeyboard();
+DLL_EXPORT void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResult* result, Keyboard* kb);
 
 #ifdef __cplusplus
 }

@@ -3,6 +3,7 @@
 #define COLOR_TITLE             RGB(0, 0, 0)
 #define COLOR_DESCRIPTION       RGB(0, 0, 0)
 #define COLOR_BLACK             RGB(0, 0, 0)
+#define COLOR_WHITISH           RGB(240, 240, 240)
 
 #define COLOR_GREEN             RGB(106, 170, 100)
 #define COLOR_YELLOW            RGB(209, 176, 54)
