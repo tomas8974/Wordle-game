@@ -27,7 +27,12 @@ void RepositionKeyboard(HWND hwnd);
 void drawLetters(HDC hdc, int cellSize, int startX, int startY);
 void handleEnterButton(HWND hwnd);
 void handleLetterButtons(int id);
+const char* getButtonLabel(int id, int index);
+COLORREF getButtonColor(int id, int index);
+void paintButtonBorder(HDC hdc, RECT rc);
+void paintButtonBackground(HDC hdc, RECT rc, COLORREF btnFill);
 void handleBackspaceButton();
+void paintButtonText(HDC hdc, RECT rc, const char* text);
 void deleteKeyboard(HWND hwnd);
 void drawGameFinished(HWND hwnd, HDC hdc);
 void paintCells(HDC hdc, int startX, int startY, int cellSize);
@@ -67,8 +72,8 @@ struct KeyBtn {
 KeyBtn keyboardButtons[KEYBOARD_SIZE + 1];
 int keyboardBtnCount = 0;
 
-char grid [6][WORD_LENGTH + 1] = {0}; // grid[currentRow] is the word that user entered
-int cellColor[6][WORD_LENGTH] = {0};
+char currentWord[GUESS_NUMBER][WORD_LENGTH + 1] = {0};
+int cellColor[GUESS_NUMBER][WORD_LENGTH] = {0};
 int currentRow = 0;
 int currentColumn = 0;
 APP_STATE appState = STATE_MENU;
@@ -292,74 +297,18 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)lParam;
                 int id = dis->CtlID;
 
-                COLORREF btnFill = COLOR_WHITISH;
-                const char* text = "";
+                int index = id - 1000;
+                if (id != ID_ENTER_BUTTON &&
+                    id != ID_BACKSPACE_BUTTON &&
+                    (index < 0 || index >= keyboardBtnCount))
+                    break;
 
-                if (id == ID_ENTER_BUTTON) {
-                    text = "ENTER";
-                }
-                else if (id == ID_BACKSPACE_BUTTON) {
-                    text = "<-";
-                }
-                else {
-                    int index = id - 1000;
-                    if (index < 0 || index >= keyboardBtnCount) break;
+                const char* text = getButtonLabel(id, index);
+                COLORREF color = getButtonColor(id, index);
 
-                    char key = keyboardButtons[index].label[0];
-                    int colorCode = _COLOR_BG;
-                    for (int i = 0; i < KEYBOARD_SIZE; i++){
-                        if (keyboard.key[i] == key){
-                            colorCode = keyboard.color[i];
-                            break;
-                        }
-                    }
-                    switch (colorCode) {
-                        case _COLOR_GRAY:
-                            btnFill = COLOR_GRAY;
-                            break;
-                        case _COLOR_YELLOW:
-                            btnFill = COLOR_YELLOW;
-                            break;
-                        case _COLOR_GREEN:
-                            btnFill = COLOR_GREEN;
-                            break;
-                        default:
-                            btnFill = COLOR_WHITISH;
-                            break;
-                    }
-                    text = keyboardButtons[index].label;
-                }
-
-
-                // fill buton background
-                HBRUSH brush = CreateSolidBrush(btnFill);
-                FillRect(dis->hDC, &dis->rcItem, brush);
-                DeleteObject(brush);
-
-                // draw border
-                HPEN hPen = CreatePen(PS_SOLID, 2, COLOR_BLACK);
-                HPEN oldPen = (HPEN)SelectObject(dis->hDC, hPen);
-                HBRUSH oldBrush = (HBRUSH)SelectObject(dis->hDC, GetStockObject(NULL_BRUSH));
-                Rectangle(dis->hDC, dis->rcItem.left, dis->rcItem.top, dis->rcItem.right, dis->rcItem.bottom);
-                SelectObject(dis->hDC, oldPen);
-                SelectObject(dis->hDC, oldBrush);
-                DeleteObject(hPen);
-
-                // draw text
-                SetBkMode(dis->hDC, TRANSPARENT);
-                HFONT hFont = CreateFontA(
-                    (dis->rcItem.bottom - dis->rcItem.top) * 0.4,
-                    0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                    ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                    DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
-                    "Arial"
-                );
-                HFONT oldFont = (HFONT)SelectObject(dis->hDC, hFont);
-
-                DrawTextA(dis->hDC, text, -1, &dis->rcItem, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-                SelectObject(dis->hDC, oldFont);
-                DeleteObject(hFont);
+                paintButtonBackground(dis->hDC, dis->rcItem, color);
+                paintButtonBorder(dis->hDC, dis->rcItem);
+                paintButtonText(dis->hDC, dis->rcItem, text);
 
             }
             break;
@@ -427,11 +376,11 @@ void handleLetterButtons(int id){
     char ch = label[0];
 
     if (currentColumn < WORD_LENGTH){
-        grid[currentRow][currentColumn] = ch;
+        currentWord[currentRow][currentColumn] = ch;
 
         currentColumn++;
 
-        grid[currentRow][currentColumn] = '\0';
+        currentWord[currentRow][currentColumn] = '\0';
     }
 }
 
@@ -439,7 +388,7 @@ void handleBackspaceButton(){
     if (currentColumn > 0){
         currentColumn--;
 
-        grid[currentRow][currentColumn] = '\0';
+        currentWord[currentRow][currentColumn] = '\0';
     }
 }
 
@@ -448,28 +397,28 @@ void handleEnterButton(HWND hwnd){
         MessageBoxA(hwnd, "Not enough letters!", "Wordle", MB_OK);
         return;
     }
-    if (!IsInWordList(grid[currentRow])){
+    if (!IsInWordList(currentWord[currentRow])){
         MessageBoxA(hwnd, "Word is not in the word list!", "Wordle", MB_OK);
         return;
     }
-    CheckEnteredWord(grid[currentRow], selectedWord, result, &keyboard);
+    CheckEnteredWord(currentWord[currentRow], selectedWord, result, &keyboard);
     for (int i = 0; i < WORD_LENGTH; i++){
 
         cellColor[currentRow][i] = result[i].color;
     }
-    if (strcmp(grid[currentRow], selectedWord) == 0 && currentRow < 5){
+    if (strcmp(currentWord[currentRow], selectedWord) == 0 && currentRow < GUESS_NUMBER - 1){
         char msg[128];
         InvalidateRect(hwnd, NULL, TRUE);
         sprintf(msg, "You won! The word was: %s", selectedWord);
         MessageBoxA(hwnd, msg , "Wordle", MB_OK);
     }
-    else if (currentRow < 5){
+    else if (currentRow < GUESS_NUMBER - 1){
         currentColumn = 0;
         currentRow++;
         return;
     }
     InvalidateRect(hwnd, NULL, TRUE);
-    if (currentRow == 5){
+    if (currentRow == GUESS_NUMBER - 1){
         char msg[128];
         sprintf(msg, "The word was: %s", selectedWord);
         MessageBoxA(hwnd, msg, "Wordle", MB_OK);
@@ -486,7 +435,7 @@ void drawGame(HWND hwnd, HDC hdc) {
 
     int cellSize = rc.bottom / 12;
     int gridWidth = cellSize * WORD_LENGTH;
-    int gridHeight = cellSize * 6;
+    int gridHeight = cellSize * GUESS_NUMBER;
 
     int startX = (rc.right - gridWidth) / 2;
     int startY = rc.top + cellSize;
@@ -505,7 +454,7 @@ void paintCells(HDC hdc, int startX, int startY, int cellSize) {
 
     HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
 
-    for (int r = 0; r < 6; r++) {
+    for (int r = 0; r < GUESS_NUMBER; r++) {
         for (int c = 0; c < WORD_LENGTH; c++) {
             COLORREF fillColor = COLOR_BG_DEFAULT;
             switch (cellColor[r][c]) {
@@ -548,7 +497,7 @@ void drawGameFinished(HWND hwnd, HDC hdc){
 
     int cellSize = rc.bottom / 12;
     int gridWidth = cellSize * WORD_LENGTH;
-    int gridHeight = cellSize * 6;
+    int gridHeight = cellSize * GUESS_NUMBER;
 
     int startX = (rc.right - gridWidth) / 2;
     int startY = rc.top + cellSize;
@@ -567,7 +516,7 @@ void drawGameFinished(HWND hwnd, HDC hdc){
 }
 
 void resetGame(){
-    memset(grid, 0, sizeof(grid));
+    memset(currentWord, 0, sizeof(currentWord));
     memset(cellColor, 0, sizeof(cellColor));
     currentRow = 0;
     currentColumn = 0;
@@ -621,10 +570,10 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY){
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, COLOR_BLACK);
 
-    for (int r = 0; r < 6; r++) {
+    for (int r = 0; r < GUESS_NUMBER; r++) {
         for (int c = 0; c < WORD_LENGTH; c++) {
 
-            char letter = grid[r][c];
+            char letter = currentWord[r][c];
             if (letter == 0) continue;
 
             RECT cell = {
@@ -647,6 +596,7 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY){
     DeleteObject(hFont);
 
 }
+
 
 void drawKeyboard(HWND hwnd, int topY) {
     RECT rc;
@@ -697,12 +647,78 @@ void drawKeyboard(HWND hwnd, int topY) {
     isKeyboardCreated = true;
 }
 
+const char* getButtonLabel(int id, int index) {
+    if (id == ID_ENTER_BUTTON) return "ENTER";
+    if (id == ID_BACKSPACE_BUTTON) return "<-";
+    return keyboardButtons[index].label;
+}
+
+COLORREF getButtonColor(int id, int index) {
+    if (id == ID_ENTER_BUTTON || id == ID_BACKSPACE_BUTTON)
+        return COLOR_WHITISH;
+
+    char key = keyboardButtons[index].label[0];
+    int colorCode = _COLOR_BG;
+
+    for (int i = 0; i < KEYBOARD_SIZE; i++) {
+        if (keyboard.key[i] == key) {
+            colorCode = keyboard.color[i];
+            break;
+        }
+    }
+    switch (colorCode) {
+        case _COLOR_GRAY:
+            return COLOR_GRAY;
+        case _COLOR_YELLOW:
+            return COLOR_YELLOW;
+        case _COLOR_GREEN:
+            return COLOR_GREEN;
+        default:
+            return COLOR_WHITISH;
+    }
+}
+
+void paintButtonBackground(HDC hdc, RECT rc, COLORREF btnFill) {
+    HBRUSH brush = CreateSolidBrush(btnFill);
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
+}
+
+void paintButtonBorder(HDC hdc, RECT rc) {
+    HPEN hPen = CreatePen(PS_SOLID, 2, COLOR_BLACK);
+    HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+    Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldBrush);
+    DeleteObject(hPen);
+}
+
+void paintButtonText(HDC hdc, RECT rc, const char* text) {
+    SetBkMode(hdc, TRANSPARENT);
+
+    int height = (rc.bottom - rc.top) * 0.3;
+    HFONT hFont = CreateFontA(height, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                              ANSI_CHARSET, OUT_DEFAULT_PRECIS,
+                              CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                              DEFAULT_PITCH | FF_DONTCARE, "Arial");
+
+    HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+
+    DrawTextA(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hdc, oldFont);
+    DeleteObject(hFont);
+}
+
 void RepositionKeyboard(HWND hwnd) {
     RECT rc;
     GetClientRect(hwnd, &rc);
 
     int cellSize = rc.bottom / 12;
-    int gridHeight = cellSize * 6;
+    int gridHeight = cellSize * GUESS_NUMBER;
     int topY = cellSize + gridHeight + cellSize / 2;
 
     const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };

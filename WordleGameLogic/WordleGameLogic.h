@@ -25,6 +25,7 @@ extern "C"
 
 #define MAX_WORDS 20000
 #define WORD_LENGTH 5
+#define GUESS_NUMBER 6
 #define _COLOR_GRAY   1
 #define _COLOR_YELLOW 2
 #define _COLOR_GREEN  3
