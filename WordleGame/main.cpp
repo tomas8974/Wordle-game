@@ -41,14 +41,13 @@ HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, in
 HWND createKeyboardButton(HWND hwnd, char* text, int x, int y, int width, int height, int id);
 void resetGame();
 void RepositionUI(HWND hwnd);
+void drawAfterGameMessage(HWND hwnd);
 void DrawTextAnywhere(
   HWND hwnd,
   LPCTSTR text,
   int fontSize,
   bool bold,
   LPCTSTR fontName,
-  COLORREF textColor,
-  COLORREF bkColor,
   UINT format,
   float xProp,
   float yProp
@@ -69,6 +68,9 @@ struct KeyBtn {
     int x, y, w, h;
 };
 
+static const LPCSTR FONT_ARIAL = "Arial";
+static const LPCSTR FONT_CASCADIA_CODE = "Cascadia Code";
+
 KeyBtn keyboardButtons[KEYBOARD_SIZE + 1];
 int keyboardBtnCount = 0;
 
@@ -85,9 +87,10 @@ HBITMAP hWordleBitmap = NULL;
 bool areMenuItemsCreated = false;
 bool isKeyboardCreated = false;
 bool finishedButtonsCreated = false;
-char* selectedWord;
+char* selectedWord = NULL;
 LetterResult result[WORD_LENGTH];
 Keyboard keyboard;
+bool gameWon = false;
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -403,14 +406,10 @@ void handleEnterButton(HWND hwnd){
     }
     CheckEnteredWord(currentWord[currentRow], selectedWord, result, &keyboard);
     for (int i = 0; i < WORD_LENGTH; i++){
-
         cellColor[currentRow][i] = result[i].color;
     }
-    if (strcmp(currentWord[currentRow], selectedWord) == 0 && currentRow < GUESS_NUMBER - 1){
-        char msg[128];
-        InvalidateRect(hwnd, NULL, TRUE);
-        sprintf(msg, "You won! The word was: %s", selectedWord);
-        MessageBoxA(hwnd, msg , "Wordle", MB_OK);
+    if (strcmp(currentWord[currentRow], selectedWord) == 0 && currentRow < GUESS_NUMBER){;
+        gameWon = true;
     }
     else if (currentRow < GUESS_NUMBER - 1){
         currentColumn = 0;
@@ -418,15 +417,8 @@ void handleEnterButton(HWND hwnd){
         return;
     }
     InvalidateRect(hwnd, NULL, TRUE);
-    if (currentRow == GUESS_NUMBER - 1){
-        char msg[128];
-        sprintf(msg, "The word was: %s", selectedWord);
-        MessageBoxA(hwnd, msg, "Wordle", MB_OK);
-    }
-    free(selectedWord);
     appState = STATE_GAME_FINISHED;
     deleteKeyboard(hwnd);
-
 }
 
 void drawGame(HWND hwnd, HDC hdc) {
@@ -506,6 +498,8 @@ void drawGameFinished(HWND hwnd, HDC hdc){
 
     drawLetters(hdc, cellSize, startX, startY);
 
+    drawAfterGameMessage(hwnd);
+
     if (!finishedButtonsCreated) {
         int x = (rc.right - MAIN_BTN_WIDTH) / 2;
         int y = (rc.bottom - MAIN_BTN_HEIGHT) / 2 + MAIN_BTN_Y_OFFSET;
@@ -514,12 +508,26 @@ void drawGameFinished(HWND hwnd, HDC hdc){
         finishedButtonsCreated = true;
     }
 }
-
+void drawAfterGameMessage(HWND hwnd){
+    char msg[128];
+    if (gameWon){
+        sprintf(msg, "You won!\r\nThe word was: %s", selectedWord);
+    }
+    else{
+        sprintf(msg, "You Lost!\r\nThe word was: %s", selectedWord);
+    }
+    DrawTextAnywhere(hwnd, msg, 28, true, FONT_ARIAL, DT_CENTER, 0, 0.6);
+}
 void resetGame(){
+    if (selectedWord != NULL)
+    {
+        free(selectedWord);
+    }
     memset(currentWord, 0, sizeof(currentWord));
     memset(cellColor, 0, sizeof(cellColor));
     currentRow = 0;
     currentColumn = 0;
+    gameWon = false;
 
     appState = STATE_GAME;
 
@@ -563,7 +571,7 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY){
         ANSI_CHARSET, OUT_DEFAULT_PRECIS,
         CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE,
-        "Arial"
+        FONT_ARIAL
     );
 
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
@@ -605,13 +613,14 @@ void drawKeyboard(HWND hwnd, int topY) {
     if (isKeyboardCreated) return;
 
     const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
+    size_t rows_size = sizeof(rows) / sizeof(rows[0]);
 
     int keyWidth = rc.right / 14;
     int keyHeight = keyWidth * 0.8;
 
     keyboardBtnCount = 0; // reset list
 
-    for (int r = 0; r < 3; r++) {
+    for (int r = 0; r < rows_size; r++) {
 
         int rowLen = strlen(rows[r]);
         int totalKeys = rowLen;
@@ -703,7 +712,7 @@ void paintButtonText(HDC hdc, RECT rc, const char* text) {
     HFONT hFont = CreateFontA(height, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                               ANSI_CHARSET, OUT_DEFAULT_PRECIS,
                               CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                              DEFAULT_PITCH | FF_DONTCARE, "Arial");
+                              DEFAULT_PITCH | FF_DONTCARE, FONT_ARIAL);
 
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
@@ -722,13 +731,15 @@ void RepositionKeyboard(HWND hwnd) {
     int topY = cellSize + gridHeight + cellSize / 2;
 
     const char* rows[] = { "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
+    size_t rowsSize = sizeof(rows) / sizeof(rows[0]);
+
 
     int keyWidth  = rc.right / 14;
     int keyHeight = keyWidth * 0.8;
 
     int index = 0;
 
-    for (int r = 0; r < 3; r++) {
+    for (int r = 0; r < rowsSize; r++) {
 
         int rowLen = strlen(rows[r]);
         int totalKeys = rowLen;
@@ -829,8 +840,7 @@ void drawMenu(HWND hwnd, HDC hdc){
     DrawTextAnywhere(
         hwnd,
         _T("Wordle"),
-        72, true, _T("Cascadia Code"),
-        COLOR_TITLE, COLOR_BG_DEFAULT,
+        72, true, FONT_CASCADIA_CODE,
         DT_CENTER | DT_VCENTER | DT_SINGLELINE,
         0, -0.2f
     );
@@ -839,8 +849,7 @@ void drawMenu(HWND hwnd, HDC hdc){
     DrawTextAnywhere(
         hwnd,
         _T("Guess a 5-letter word\r\nin 6 guesses"),
-        32, true, _T("Cascadia Code"),
-        COLOR_DESCRIPTION, COLOR_BG_DEFAULT,
+        32, true, FONT_CASCADIA_CODE,
         DT_CENTER | DT_VCENTER,
         0, 0.5f
     );
@@ -878,8 +887,6 @@ void DrawTextAnywhere(
       int fontSize,
       bool bold,
       LPCTSTR fontName,
-      COLORREF textColor,
-      COLORREF bkColor,
       UINT format,
       float xProp = 0.0f,
       float yProp = 0.0f
@@ -896,8 +903,8 @@ void DrawTextAnywhere(
     HFONT hFont = CreateCustomFont(fontSize, bold, fontName);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
 
-    SetBkColor(hdc, bkColor);
-    SetTextColor(hdc, textColor);
+    SetBkColor(hdc, COLOR_BG_DEFAULT);
+    SetTextColor(hdc, COLOR_BLACK);
 
     rcText = {0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top};
     DrawText(hdc, text, -1, &rcText, format | DT_CALCRECT);
@@ -1002,8 +1009,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 DrawTextAnywhere(
                     hDlg,
                     _T("How To Play"),
-                    40, true, _T("Cascadia Code"),
-                    COLOR_TITLE, COLOR_BG_DEFAULT,
+                    40, true, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, -0.8f
                 );
@@ -1011,8 +1017,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 DrawTextAnywhere(
                     hDlg,
                     _T("Guess the Wordle in 6 tries."),
-                    24, false, _T("Cascadia Code"),
-                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
+                    24, false, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_SINGLELINE ,
                     0.05f, -0.7f
                 );
@@ -1021,8 +1026,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                     hDlg,
                     _T("• Each guess must be a valid 5-letter word.\r\n\n"
                        "• The color of the tiles will change to show\r\n  how close your guess was to the word."),
-                    18, false, _T("Cascadia Code"),
-                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
+                    18, false, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_LEFT,
                     0.05f, -2.2f
                 );
@@ -1030,8 +1034,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 DrawTextAnywhere(
                     hDlg,
                     _T("Examples"),
-                    18, true, _T("Cascadia Code"),
-                    COLOR_TITLE, COLOR_BG_DEFAULT,
+                    18, true, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, -0.29f
                 );
@@ -1043,8 +1046,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 DrawTextAnywhere(
                     hDlg,
                     _T("W is in the word and in the correct spot."),
-                    18, false, _T("Cascadia Code"),
-                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
+                    18, false, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, -0.11f
                 );
@@ -1056,8 +1058,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 DrawTextAnywhere(
                     hDlg,
                     _T("I is in the word but in the wrong spot."),
-                    18, false, _T("Cascadia Code"),
-                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
+                    18, false, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, 0.09f
                 );
@@ -1069,8 +1070,7 @@ BOOL CALLBACK RulesDialogProcedure(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM l
                 DrawTextAnywhere(
                     hDlg,
                     _T("U is not in the word in any spot."),
-                    18, false, _T("Cascadia Code"),
-                    COLOR_TEXT_PRIMARY, COLOR_BG_DEFAULT,
+                    18, false, FONT_CASCADIA_CODE,
                     DT_VCENTER | DT_SINGLELINE,
                     0.05f, 0.29f
                 );

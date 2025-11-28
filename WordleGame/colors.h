@@ -1,7 +1,4 @@
-#define COLOR_TEXT_PRIMARY      RGB(0, 0, 0)
 #define COLOR_BG_DEFAULT        RGB(224, 224, 224)
-#define COLOR_TITLE             RGB(0, 0, 0)
-#define COLOR_DESCRIPTION       RGB(0, 0, 0)
 #define COLOR_BLACK             RGB(0, 0, 0)
 #define COLOR_WHITISH           RGB(240, 240, 240)
 
