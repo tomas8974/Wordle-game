@@ -20,7 +20,7 @@
 
 1758698873 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\bitmaps.h
 
-1764516150 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\main.cpp
+1764519063 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\main.cpp
 	<tchar.h>
 	<windows.h>
 	"menu.h"
@@ -31,6 +31,7 @@
 	"colors.h"
 	<stdio.h>
 	"GameLogicConstants.h"
+	"icons.h"
 
 1758702022 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\menu.h
 
@@ -62,4 +63,9 @@
 
 1764506204 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\gamelogicconstants.h
 	<stdio.h>
+
+1764519016 source:c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\icons.rc
+	"icons.h"
+
+1764518679 c:\users\tomas\desktop\vu\5 semestras\windows api\windows-api-2025\wordlegame\icons.h
 

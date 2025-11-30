@@ -14,6 +14,7 @@
 #include "colors.h"
 #include <stdio.h>
 #include "GameLogicConstants.h"
+#include "icons.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -122,8 +123,9 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
     wincl.cbSize = sizeof (WNDCLASSEX);
 
     /* Use default icon and mouse-pointer */
-    wincl.hIcon = LoadIcon (NULL, IDI_APPLICATION);
-    wincl.hIconSm = LoadIcon (NULL, IDI_APPLICATION);
+    wincl.hIcon = LoadIcon(hThisInstance, MAKEINTRESOURCE(IDI_APP_ICON));
+    wincl.hIconSm = LoadIcon(hThisInstance, MAKEINTRESOURCE(IDI_APP_ICON));
+
     wincl.hCursor = LoadCursor (NULL, IDC_ARROW);
     wincl.lpszMenuName = NULL;                 /* No menu */
     wincl.cbClsExtra = 0;                      /* No extra bytes after the window class */
