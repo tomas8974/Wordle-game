@@ -5,55 +5,26 @@
 
 // a sample exported function
 
-static char WORD_LIST[MAX_WORDS][WORD_LENGTH+1];
-static int WORD_COUNT = 0;
-
-void LoadWords()
+bool IsInWordList(const char* word, char words[][WORD_LENGTH + 1], int wordCount)
 {
-    if (WORD_COUNT > 0) return;
-    FILE* file = fopen("words.txt", "r");
-    if (!file) return;
-
-    char buffer[128];
-    while (fgets(buffer, sizeof(buffer), file)) {
-        // remove newline
-        char* p = strchr(buffer, '\n');
-        if (p) *p = 0;
-        p = strchr(buffer, '\r');
-        if (p) *p = 0;
-
-        // check length
-        if (strlen(buffer) == WORD_LENGTH) {
-            for (int i = 0; i < WORD_LENGTH; i++)
-                buffer[i] = toupper(buffer[i]);
-            strcpy(WORD_LIST[WORD_COUNT], buffer);
-            WORD_COUNT++;
-            if (WORD_COUNT >= MAX_WORDS) break;
-        }
-    }
-    fclose(file);
-}
-
-bool IsInWordList(const char* word)
-{
-    for (int i = 0; i < WORD_COUNT; i++)
+    for (int i = 0; i < wordCount; i++)
     {
-        if (_stricmp(WORD_LIST[i], word) == 0)
+        if (_stricmp(words[i], word) == 0)
             return true;
     }
     return false;
 }
 
-char* PickRandomWord() {
-    if (WORD_COUNT == 0) return NULL;
+char* PickRandomWord(char words[][WORD_LENGTH + 1], int wordCount) {
+    if (wordCount == 0) return NULL;
 
     srand((unsigned)time(NULL));
-    int i = rand() % WORD_COUNT;
+    int i = rand() % wordCount;
 
     char* buffer = (char*)malloc(WORD_LENGTH + 1);
     if (!buffer) return NULL;
 
-    strncpy(buffer, WORD_LIST[i], WORD_LENGTH);
+    strncpy(buffer, words[i], WORD_LENGTH);
     buffer[WORD_LENGTH] = '\0';
 
     return buffer;

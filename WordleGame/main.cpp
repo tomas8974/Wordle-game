@@ -13,7 +13,7 @@
 #include "ui_constants.h"
 #include "colors.h"
 #include <stdio.h>
-#include "WordleGameLogic.h"
+#include "GameLogicConstants.h"
 
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -42,6 +42,8 @@ HWND createKeyboardButton(HWND hwnd, char* text, int x, int y, int width, int he
 void resetGame();
 void RepositionUI(HWND hwnd);
 void drawAfterGameMessage(HWND hwnd);
+void loadWords();
+void freeMemoryDllAndSelectedWord();
 void DrawTextAnywhere(
   HWND hwnd,
   LPCTSTR text,
@@ -52,6 +54,12 @@ void DrawTextAnywhere(
   float xProp,
   float yProp
 );
+
+typedef int (__cdecl *IsInWordListProc)(const char* word, char wordList[][WORD_LENGTH+1], int wordCount);
+typedef void (__cdecl *CheckEnteredWordProc)(char* enteredWord, char* selectedWord, LetterResult* result, Keyboard* keyboard);
+typedef char* (__cdecl *PickRandomWordProc)(char wordList[][WORD_LENGTH+1], int wordCount);
+typedef Keyboard (__cdecl *InitializeKeyboardProc)();
+
 /*  Make the class name into a global variable  */
 TCHAR szClassName[ ] = _T("CodeBlocksWindowsApp");
 
@@ -74,6 +82,10 @@ static const LPCSTR FONT_CASCADIA_CODE = "Cascadia Code";
 KeyBtn keyboardButtons[KEYBOARD_SIZE + 1];
 int keyboardBtnCount = 0;
 
+
+static char WORD_LIST[MAX_WORDS][WORD_LENGTH + 1];
+static int WORD_COUNT = 0;
+
 char currentWord[GUESS_NUMBER][WORD_LENGTH + 1] = {0};
 int cellColor[GUESS_NUMBER][WORD_LENGTH] = {0};
 int currentRow = 0;
@@ -91,6 +103,7 @@ char* selectedWord = NULL;
 LetterResult result[WORD_LENGTH];
 Keyboard keyboard;
 bool gameWon = false;
+HINSTANCE hGameLogic = NULL;
 
 int WINAPI WinMain (HINSTANCE hThisInstance,
                      HINSTANCE hPrevInstance,
@@ -166,7 +179,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     {
         case WM_CREATE:
         {
-            LoadWords();
+            loadWords();
         }
         break;
         case WM_PAINT:
@@ -208,6 +221,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 int id = LOWORD(wParam);
                 switch(id){
                     case ID_FILE_EXIT:
+                        freeMemoryDllAndSelectedWord();
                         SendMessage(hwnd, WM_CLOSE, 0, 0);
                         break;
                     case ID_PLAY_BUTTON:
@@ -220,12 +234,16 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         break;
                     case ID_MAIN_MENU_BUTTON:
                         {
-                            if (isKeyboardCreated){
-                                deleteKeyboard(hwnd);
+                            if (appState == STATE_GAME || appState == STATE_GAME_FINISHED){
+                                freeMemoryDllAndSelectedWord();
+                                if (isKeyboardCreated){
+                                    deleteKeyboard(hwnd);
+                                }
+                                HWND finishedButtons[] = { hReplayBtn, hBackBtn };
+                                destroyButtons(finishedButtons, 2);
                             }
+
                             appState = STATE_MENU;
-                            HWND finishedButtons[] = { hReplayBtn, hBackBtn };
-                            destroyButtons(finishedButtons, 2);
                             InvalidateRect(hwnd, NULL, TRUE);
                         }
 
@@ -319,6 +337,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 
         case WM_DESTROY:
             if (hWordleBitmap) DeleteObject(hWordleBitmap);
+            freeMemoryDllAndSelectedWord();
             PostQuitMessage (0);       /* send a WM_QUIT to the message queue */
             break;
         default:                      /* for messages that we don't deal with */
@@ -400,11 +419,17 @@ void handleEnterButton(HWND hwnd){
         MessageBoxA(hwnd, "Not enough letters!", "Wordle", MB_OK);
         return;
     }
-    if (!IsInWordList(currentWord[currentRow])){
-        MessageBoxA(hwnd, "Word is not in the word list!", "Wordle", MB_OK);
-        return;
+    IsInWordListProc IsInWordList = (IsInWordListProc) GetProcAddress(hGameLogic, "IsInWordList");
+    if (IsInWordList != NULL){
+        if (!IsInWordList(currentWord[currentRow], WORD_LIST, WORD_COUNT)){
+            MessageBoxA(hwnd, "Word is not in the word list!", "Wordle", MB_OK);
+            return;
+        }
     }
-    CheckEnteredWord(currentWord[currentRow], selectedWord, result, &keyboard);
+    CheckEnteredWordProc CheckEnteredWord = (CheckEnteredWordProc) GetProcAddress(hGameLogic, "CheckEnteredWord");
+    if (CheckEnteredWord != NULL){
+        CheckEnteredWord(currentWord[currentRow], selectedWord, result, &keyboard);
+    }
     for (int i = 0; i < WORD_LENGTH; i++){
         cellColor[currentRow][i] = result[i].color;
     }
@@ -519,9 +544,13 @@ void drawAfterGameMessage(HWND hwnd){
     DrawTextAnywhere(hwnd, msg, 28, true, FONT_ARIAL, DT_CENTER, 0, 0.6);
 }
 void resetGame(){
+    if (hGameLogic == NULL){
+        hGameLogic = LoadLibrary("WordleGameLogic.dll");
+    }
     if (selectedWord != NULL)
     {
         free(selectedWord);
+        selectedWord = NULL;
     }
     memset(currentWord, 0, sizeof(currentWord));
     memset(cellColor, 0, sizeof(cellColor));
@@ -533,10 +562,73 @@ void resetGame(){
 
     areMenuItemsCreated = false;
     finishedButtonsCreated = false;
-    keyboard = initializeKeyboard();
-    selectedWord = PickRandomWord();
+    InitializeKeyboardProc initializeKeyboard = (InitializeKeyboardProc) GetProcAddress(hGameLogic, "initializeKeyboard");
+    if (initializeKeyboard != NULL){
+        keyboard = initializeKeyboard();
+    }
+    PickRandomWordProc PickRandomWord = (PickRandomWordProc) GetProcAddress(hGameLogic, "PickRandomWord");
+    if (PickRandomWord != NULL){
+        selectedWord = PickRandomWord(WORD_LIST, WORD_COUNT);
+    }
 }
+void loadWords(){
+    if (WORD_COUNT > 0) return;
+    HANDLE file = CreateFile(
+          "words.txt", GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    const DWORD BUF_SIZE = 4096;
+    BYTE buf[BUF_SIZE];
+    DWORD bytesRead;
+
+    char line[128];
+    int  lineLen = 0;
+
+    while(true) {
+        if (!ReadFile(file, buf, BUF_SIZE, &bytesRead, NULL)) {
+            CloseHandle(file);
+            return;
+        }
+
+        if (bytesRead == 0) {
+            // last line in file
+            if (lineLen == WORD_LENGTH) {
+                CharUpperBuffA(line, WORD_LENGTH);
+                line[WORD_LENGTH] = 0;
+                if (WORD_COUNT < MAX_WORDS)
+                    memcpy(WORD_LIST[WORD_COUNT++], line, WORD_LENGTH + 1);
+            }
+            break;
+        }
+
+        for (DWORD i = 0; i < bytesRead; ++i) {
+            char c = (char)buf[i];
+
+            if (c == '\n') {
+                if (lineLen == WORD_LENGTH) {
+                    CharUpperBuffA(line, WORD_LENGTH);
+                    line[WORD_LENGTH] = 0;
+
+                    if (WORD_COUNT < MAX_WORDS)
+                        memcpy(WORD_LIST[WORD_COUNT++], line, WORD_LENGTH + 1);
+                }
+                lineLen = 0;
+            }
+            else if (c == '\r') {
+                // skip
+            }
+            else {
+                if (lineLen < (int)sizeof(line) - 1)
+                    line[lineLen++] = c;
+            }
+        }
+    }
+
+    CloseHandle(file);
+}
 HWND createButton(HWND hwnd, char* text, int x, int y, int width, int height, int id){
     HWND hButton = CreateWindow(
         "BUTTON", // predefined class; Unicode assumed
@@ -605,6 +697,17 @@ void drawLetters(HDC hdc, int cellSize, int startX, int startY){
 
 }
 
+void freeMemoryDllAndSelectedWord(){
+    if (selectedWord != NULL) {
+        free(selectedWord);
+        selectedWord = NULL;
+    }
+
+    if (hGameLogic != NULL){
+        FreeLibrary(hGameLogic);
+		hGameLogic = NULL;
+    }
+}
 
 void drawKeyboard(HWND hwnd, int topY) {
     RECT rc;

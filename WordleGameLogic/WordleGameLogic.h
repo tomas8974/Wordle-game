@@ -46,9 +46,8 @@ typedef struct {
     int letterCount[KEYBOARD_SIZE];
 } PickedWordSymbols;
 
-DLL_EXPORT void LoadWords();
-DLL_EXPORT bool IsInWordList(const char* word);
-DLL_EXPORT char* PickRandomWord();
+DLL_EXPORT bool IsInWordList(const char* word, char words[][WORD_LENGTH + 1], int wordCount);
+DLL_EXPORT char* PickRandomWord(char words[][WORD_LENGTH + 1], int wordCount);
 DLL_EXPORT void updateKeyboard(Keyboard* kb, char character, int color);
 DLL_EXPORT Keyboard initializeKeyboard();
 DLL_EXPORT void CheckEnteredWord(const char* inputWord, const char* pickedWord, LetterResult* result, Keyboard* kb);
