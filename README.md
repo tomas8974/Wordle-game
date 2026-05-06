@@ -1,5 +1,5 @@
 # Wordle game
-Wordle game is my final project for the Windows API subject in Vilnius University.
+Wordle game is my final project for the Windows API subject in Vilnius University in 2025 Autumn semester.
 
 # About the game
 
