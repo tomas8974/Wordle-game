@@ -5,6 +5,8 @@ Wordle game is my final project for the Windows API subject in Vilnius Universit
 
 This project is a simple recreation of a Wordle game according to [New York Times wordle](https://www.nytimes.com/games/wordle/index.html) game. It has a simple main menu, rules window, and interactive gameplay. You can enter guesses using either your mouse or keyboard. The on-screen keyboard is colored appropriately to indicate whether each letter is correct, present in the word, or absent.
 
+## Demo
+
 [Demo (Youtube)](https://youtu.be/D1YmjLX2WBE)
 
 # Downloading
