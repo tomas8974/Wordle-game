@@ -1,4 +1,4 @@
-# Windows API 2025
+# Wordle game
 Wordle game is my final project for the Windows API subject in Vilnius University.
 
 # About the game
